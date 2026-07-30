@@ -1,10 +1,13 @@
 # CEF Prebuilt Tarballs
 
-此目录用于放置 CEF 官方预编译包，加速 `pod install` 中的下载过程。
+此目录用于放置 CEF 官方预编译包，加速所有平台（macOS / Windows / Linux / eLinux）的 CEF 下载过程。
 
 ## 为什么需要？
 
-`pod install` 时会执行 `download_cef.sh`，默认需要从 Spotify CDN 下载两个架构的 CEF 包（共约 560MB）。国内网络环境下 CDN 下载速度可能很慢（数十分钟），将 tarball 预先放置到此目录后，脚本会自动跳过下载，直接使用本地文件，整个过程只需数秒。
+各平台首次集成 CEF 时，默认需要从 Spotify CDN 下载对应架构的 CEF 包（每个约 300MB）。国内网络环境下 CDN 下载速度可能很慢（数十分钟），将 tarball 预先放置到此目录后，构建脚本会自动跳过下载，直接使用本地文件，整个过程只需数秒。
+
+- **macOS**: `macos/scripts/download_cef.sh` 会优先检查 `cef_tar/`
+- **Windows / Linux / eLinux**: `third/download.cmake` 会优先检查 `cef_tar/`
 
 ## 如何获取？
 

@@ -4,6 +4,10 @@
 set(CEF_CDN "https://cef-builds.spotifycdn.com")
 set(CEF_VERSION "149.0.4+g2f1bfd8+chromium-149.0.7827.156")
 
+# Compute the repository root for local tarball lookup.
+# download.cmake lives in third/; the repo root is one level up.
+get_filename_component(CEF_REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(WARNING "current system is Linux")
         if(CMAKE_SYSTEM_PROCESSOR STREQUAL "aarch64" OR
@@ -88,9 +92,20 @@ function(prepare_prebuilt_files filepath)
         file(REMOVE_RECURSE ${filepath}/cmake ${filepath}/Debug ${filepath}/Release ${filepath}/Resources ${filepath}/libcef_dll ${filepath}/libcef_dll_wrapper ${filepath}/include)
         # Also remove the legacy lower-case layout from the old custom Windows package.
         file(REMOVE_RECURSE ${filepath}/debug ${filepath}/release ${filepath}/resources)
-        download_file(${cef_prebuilt_path} ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt.zip)
-        file(MAKE_DIRECTORY ${filepath})
-        extract_file(${CMAKE_CURRENT_SOURCE_DIR}/prebuilt.zip ${filepath})
+
+        # Check for a local tarball in cef_tar/ first (offline acceleration).
+        # If found, extract directly from it — saves downloading ~300 MB from CDN.
+        set(_local_tarball "${CEF_REPO_ROOT}/cef_tar/${cef_prebuilt_version}")
+        if(EXISTS "${_local_tarball}")
+            message(WARNING "Using local ${cef_prebuilt_version} from cef_tar/")
+            file(MAKE_DIRECTORY ${filepath})
+            extract_file("${_local_tarball}" ${filepath})
+        else()
+            download_file(${cef_prebuilt_path} ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt.zip)
+            file(MAKE_DIRECTORY ${filepath})
+            extract_file(${CMAKE_CURRENT_SOURCE_DIR}/prebuilt.zip ${filepath})
+            file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt.zip)
+        endif()
 
         ## Needed for making it run on arm64 Linux (makes it check for arm64 or aarch64 instead of just arm64)
         if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
@@ -101,6 +116,5 @@ function(prepare_prebuilt_files filepath)
         endif()
 
         file(WRITE "${filepath}/version.txt" "${cef_prebuilt_version}")
-        file(REMOVE_RECURSE ${CMAKE_CURRENT_SOURCE_DIR}/prebuilt.zip)
     endif()
 endfunction(prepare_prebuilt_files)
