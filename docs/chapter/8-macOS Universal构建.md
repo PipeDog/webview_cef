@@ -105,10 +105,11 @@ fi
 
 #### 1.3 本地 tarball 加速
 
-`download_cef.sh` 执行时会优先检查 `cef_tar/` 目录，如果存在对应架构的 tarball 则直接使用，跳过 CDN 下载：
+`download_cef.sh` 执行时会优先检查 `~/.cef/tar/` 目录（系统级缓存），如果存在对应架构的 tarball 则直接使用，跳过 CDN 下载：
 
 ```bash
-local_tar="${REPO_ROOT}/cef_tar/${pkg}.tar.bz2"
+cache_dir="${CEF_TAR_CACHE_DIR:-${HOME}/.cef/tar}"
+local_tar="${cache_dir}/${pkg}.tar.bz2"
 if [ -f "${local_tar}" ]; then
   cp "${local_tar}" "${tarball}"       # 秒级，跳过下载
 else
@@ -116,9 +117,9 @@ else
 fi
 ```
 
-**如何预置 tarball**：从 Spotify CDN 下载后放入 `cef_tar/` 目录（详见 `cef_tar/README.md`），文件不会被提交到 Git（已通过 `.gitignore` 排除）。下次 `pod install` 时会自动识别并使用。
+**如何预置 tarball**：从 Spotify CDN 下载后放入 `~/.cef/tar/` 目录（详见 `cef_tar/README.md`）。下次 `pod install` 时会自动识别并使用。
 
-**依赖方如何使用**：如果你是通过 Git 依赖 `webview_cef` 的项目，同样可以将 CEF tarball 放入插件的 `cef_tar/` 目录下。由于 Flutter 通过符号链接（`.symlinks/plugins/`）引用插件，插件源码中的 `cef_tar/` 路径仍然可达，脚本能正确找到本地文件。
+**依赖方如何使用**：由于缓存路径 `~/.cef/tar/` 是系统级的固定目录，与项目位置无关，无论 `webview_cef` 以何种方式集成（本地路径、Git 依赖、pub 依赖），构建脚本均能正确找到本地 tarball，无需关心插件源码所在位置。
 
 #### 1.4 lipo 合并
 
@@ -213,8 +214,8 @@ CEF_UNIVERSAL=0 pod install
 ## 注意事项
 
 - **磁盘空间**：临时目录峰值约 2GB，构建完成后自动清理
-- **首次构建时间**：使用本地 tarball（`cef_tar/`）时，跳过 CDN 下载，接近原单架构时间。`cef_tar/` 下的文件不会被提交到 Git（`.gitignore` 已排除），需要手动下载放置。详见 `cef_tar/README.md`
-- **依赖方加速**：如果是依赖 `webview_cef` 的外部项目，可将 CEF tarball 放入插件源码目录的 `cef_tar/` 下（即 `<your_project>/.symlinks/plugins/webview_cef/cef_tar/`），即可享受本地加速
+- **首次构建时间**：使用本地 tarball（`~/.cef/tar/`）时，跳过 CDN 下载，接近原单架构时间。详见 `cef_tar/README.md`
+- **依赖方加速**：`~/.cef/tar/` 是系统级固定缓存目录，与项目位置无关，所有集成方式均自动生效
 - **被中断的 pod install**：`trap cleanup EXIT` 自动清理临时目录，下次重新开始
 - **CEF 版本升级**：`find` + `file` 扫描机制自动适应 framework 内部结构变化
 - **Intel Mac 兼容**：脚本不再依赖 `uname -m` 决定下载哪个架构，Intel Mac 上 Debug 构建时链接器只取 x86_64 的 slice

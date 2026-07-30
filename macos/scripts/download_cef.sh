@@ -161,11 +161,14 @@ download_and_build() {
   local pkg="cef_binary_${CEF_VERSION}_${cef_arch}"
   local tarball="${work}/${pkg}.tar.bz2"
 
-  # If a local tarball exists under cef_tar/ (committed to the repo for
-  # offline builds), use it directly — saves ~10 minutes of slow CDN download.
-  local local_tar="${REPO_ROOT}/cef_tar/${pkg}.tar.bz2"
+  # If a local tarball exists under ~/.cef/tar/ (system-level cache,
+  # shared across all projects), use it directly — saves ~10 minutes of
+  # slow CDN download. Set CEF_TAR_CACHE_DIR to override the default path.
+  local cache_dir="${CEF_TAR_CACHE_DIR:-${HOME}/.cef/tar}"
+  mkdir -p "${cache_dir}"
+  local local_tar="${cache_dir}/${pkg}.tar.bz2"
   if [ -f "${local_tar}" ]; then
-    echo "==> Using local ${pkg}.tar.bz2 (${arch}) from cef_tar/"
+    echo "==> Using local ${pkg}.tar.bz2 (${arch}) from ${cache_dir}/"
     cp "${local_tar}" "${tarball}"
   else
     # CDN requires '+' percent-encoded as %2B.

@@ -4,9 +4,32 @@
 set(CEF_CDN "https://cef-builds.spotifycdn.com")
 set(CEF_VERSION "149.0.4+g2f1bfd8+chromium-149.0.7827.156")
 
-# Compute the repository root for local tarball lookup.
 # download.cmake lives in third/; the repo root is one level up.
-get_filename_component(CEF_REPO_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
+# Resolve the cross-platform CEF tarball cache directory.
+# Priority: CEF_TAR_CACHE_DIR (optional) > platform-specific home.
+if(DEFINED ENV{CEF_TAR_CACHE_DIR})
+    set(_cef_cache "$ENV{CEF_TAR_CACHE_DIR}")
+elseif(WIN32)
+    if(DEFINED ENV{USERPROFILE})
+        set(_cef_cache "$ENV{USERPROFILE}/.cef/tar")
+    elseif(DEFINED ENV{HOMEDRIVE} AND DEFINED ENV{HOMEPATH})
+        set(_cef_cache "$ENV{HOMEDRIVE}$ENV{HOMEPATH}/.cef/tar")
+    else()
+        set(_cef_cache "$ENV{HOME}/.cef/tar")
+    endif()
+else()
+    set(_cef_cache "$ENV{HOME}/.cef/tar")
+endif()
+
+# Fail early when no home directory could be resolved (extremely rare, but
+# without this guard CMake would silently set _cef_cache to "/.cef/tar" and
+# fail later with a confusing permission error).
+if(NOT _cef_cache)
+    message(FATAL_ERROR
+        "Cannot determine CEF tarball cache directory. "
+        "Please set the CEF_TAR_CACHE_DIR environment variable to a writable path "
+        "(e.g. /tmp/cef-cache) and re-run.")
+endif()
 
 if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     message(WARNING "current system is Linux")
@@ -93,11 +116,11 @@ function(prepare_prebuilt_files filepath)
         # Also remove the legacy lower-case layout from the old custom Windows package.
         file(REMOVE_RECURSE ${filepath}/debug ${filepath}/release ${filepath}/resources)
 
-        # Check for a local tarball in cef_tar/ first (offline acceleration).
-        # If found, extract directly from it — saves downloading ~300 MB from CDN.
-        set(_local_tarball "${CEF_REPO_ROOT}/cef_tar/${cef_prebuilt_version}")
+        # Check for a local tarball in the system-level cache first
+        # (~/.cef/tar/ or CEF_TAR_CACHE_DIR). Saves ~300 MB CDN download.
+        set(_local_tarball "${_cef_cache}/${cef_prebuilt_version}")
         if(EXISTS "${_local_tarball}")
-            message(WARNING "Using local ${cef_prebuilt_version} from cef_tar/")
+            message(WARNING "Using local ${cef_prebuilt_version} from ${_cef_cache}/")
             file(MAKE_DIRECTORY ${filepath})
             extract_file("${_local_tarball}" ${filepath})
         else()
