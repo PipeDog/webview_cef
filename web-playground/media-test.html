@@ -1,0 +1,686 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Media Playback Test</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .header h1 {
+      font-size: 1.6rem;
+      color: #e94560;
+    }
+
+    .btn-back {
+      background: #2a2a4a;
+      color: #a0a0b0;
+      border: none;
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 0.85rem;
+      cursor: pointer;
+      font-weight: 600;
+      text-decoration: none;
+      transition: opacity 0.2s;
+    }
+
+    .btn-back:hover {
+      opacity: 0.85;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: #a0a0b0;
+      margin-bottom: 28px;
+    }
+
+    /* ── Player Area ─────────────────────────── */
+    .player-card {
+      background: #0d0d1a;
+      border-radius: 12px;
+      margin-bottom: 24px;
+      overflow: hidden;
+      border: 1px solid #2a2a4a;
+    }
+
+    .player-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: #16213e;
+      border-bottom: 1px solid #2a2a4a;
+    }
+
+    .player-title {
+      font-size: 0.82rem;
+      color: #a0a0b0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 600px;
+    }
+
+    .player-type {
+      font-size: 0.72rem;
+      background: #533483;
+      color: #fff;
+      padding: 3px 10px;
+      border-radius: 12px;
+      white-space: nowrap;
+    }
+
+    .player-type.audio {
+      background: #1a6b3c;
+    }
+
+    .player-type.video {
+      background: #0f3460;
+    }
+
+    .player-type.live {
+      background: #e94560;
+    }
+
+    .player-wrapper {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 60px;
+    }
+
+    video {
+      width: 100%;
+      max-height: 480px;
+      background: #000;
+      display: block;
+    }
+
+    audio {
+      width: 100%;
+      margin: 16px 0;
+    }
+
+    .player-placeholder {
+      padding: 40px;
+      text-align: center;
+      color: #505070;
+      font-size: 0.9rem;
+    }
+
+    .player-error {
+      padding: 20px;
+      text-align: center;
+      color: #e94560;
+      font-size: 0.85rem;
+      background: rgba(233, 69, 96, 0.08);
+    }
+
+    .player-error code {
+      background: rgba(233, 69, 96, 0.15);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 0.78rem;
+      word-break: break-all;
+    }
+
+    /* ── Media List ──────────────────────────── */
+    .section {
+      margin-bottom: 28px;
+    }
+
+    .section-title {
+      font-size: 1rem;
+      color: #e0e0e0;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title .icon {
+      font-size: 1.2rem;
+    }
+
+    .section-desc {
+      font-size: 0.78rem;
+      color: #707088;
+      margin-bottom: 12px;
+    }
+
+    .media-table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #16213e;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+    }
+
+    .media-table th {
+      text-align: left;
+      padding: 10px 16px;
+      background: #0f3460;
+      font-size: 0.78rem;
+      color: #a0a0b0;
+      font-weight: 600;
+    }
+
+    .media-table td {
+      padding: 10px 16px;
+      font-size: 0.82rem;
+      border-bottom: 1px solid #1a1a2e;
+      vertical-align: middle;
+    }
+
+    .media-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .media-table tr:hover td {
+      background: rgba(233, 69, 96, 0.05);
+    }
+
+    .media-table td.url {
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.72rem;
+      color: #9090b0;
+      word-break: break-all;
+      max-width: 400px;
+    }
+
+    .media-table td.note {
+      font-size: 0.72rem;
+      color: #707088;
+      white-space: nowrap;
+    }
+
+    .btn-play {
+      background: #e94560;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+    }
+
+    .btn-play:hover {
+      opacity: 0.85;
+    }
+
+    .btn-play:active {
+      opacity: 0.7;
+    }
+
+    .btn-stop {
+      background: #2a2a4a;
+      color: #a0a0b0;
+      border: none;
+      border-radius: 6px;
+      padding: 6px 16px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s;
+      white-space: nowrap;
+      margin-left: 6px;
+    }
+
+    .btn-stop:hover {
+      opacity: 0.85;
+    }
+
+    .warn-badge {
+      display: inline-block;
+      background: #5a4a00;
+      color: #ffd700;
+      font-size: 0.7rem;
+      padding: 2px 8px;
+      border-radius: 10px;
+      margin-left: 6px;
+    }
+
+    /* ── Log area ────────────────────────────── */
+    .log-area {
+      margin-top: 24px;
+      background: #0d0d1a;
+      border-radius: 8px;
+      padding: 14px;
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: 'SF Mono', 'Fira Code', monospace;
+      font-size: 0.75rem;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .log-line {
+      border-bottom: 1px solid #1a1a2e;
+      padding: 3px 0;
+    }
+
+    .log-line .tag {
+      font-weight: 700;
+    }
+
+    .log-line .tag.info {
+      color: #4fc3f7;
+    }
+
+    .log-line .tag.error {
+      color: #e94560;
+    }
+
+    .log-line .tag.ok {
+      color: #66bb6a;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>&#x1F3AC; Media Playback Test</h1>
+      <button class="btn-back" onclick="location.href='bridge.html'">&#x2190; Back to JSBridge</button>
+    </div>
+    <p class="subtitle">Test MP3, MP4, HLS/M3U8, RTMP &amp; RTSP playback in CEF WebView</p>
+
+    <!-- Player -->
+    <div class="player-card" id="player-card" style="display:none">
+      <div class="player-header">
+        <span class="player-title" id="player-title">No media selected</span>
+        <span class="player-type" id="player-type">-</span>
+      </div>
+      <div class="player-wrapper" id="player-wrapper">
+        <div class="player-placeholder" id="player-placeholder">Click "Play" on a media source below</div>
+        <video id="video-player" controls crossorigin="anonymous" style="display:none"></video>
+        <audio id="audio-player" controls crossorigin="anonymous" style="display:none"></audio>
+        <div class="player-error" id="player-error" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- ── MP3 Audio ──────────────────────────── -->
+    <div class="section">
+      <h2 class="section-title"><span class="icon">&#x1F3B5;</span> MP3 Audio</h2>
+      <p class="section-desc">Pure audio playback via <code>&lt;audio&gt;</code> element</p>
+      <table class="media-table">
+        <thead>
+          <tr><th>Description</th><th>URL</th><th style="width:100px"></th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Cambridge Movers Listening Vol.2</td>
+            <td class="url">https://www.cambridgeenglish.org/images/153149-movers-sample-listening-test-vol2.mp3</td>
+            <td><button class="btn-play" onclick="playAudio(this, 'Cambridge Movers Vol.2')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>Cambridge A2 Key Listening</td>
+            <td class="url">https://www.cambridgeenglish.org/images/506891-a2-key-for-schools-listening-sample-test.mp3</td>
+            <td><button class="btn-play" onclick="playAudio(this, 'Cambridge A2 Key')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>MP3 with Cover Art</td>
+            <td class="url">https://sdk-release.qnsdk.com/1599039859854_9242359.mp3</td>
+            <td><button class="btn-play" onclick="playAudio(this, 'MP3 with Cover')">&#x25B6; Play</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── MP4 Video ──────────────────────────── -->
+    <div class="section">
+      <h2 class="section-title"><span class="icon">&#x1F3AC;</span> MP4 Video</h2>
+      <p class="section-desc">Video-on-demand playback via <code>&lt;video&gt;</code> element</p>
+      <table class="media-table">
+        <thead>
+          <tr><th>Description</th><th>URL</th><th>Features</th><th style="width:100px"></th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Oceans</td>
+            <td class="url">http://vjs.zencdn.net/v/oceans.mp4</td>
+            <td class="note">Classic test clip</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Oceans')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>Big Buck Bunny</td>
+            <td class="url">http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4</td>
+            <td class="note">Open-source animation</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Big Buck Bunny')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>Bear (W3Schools)</td>
+            <td class="url">https://www.w3schools.com/html/movie.mp4</td>
+            <td class="note">Common HTML5 test</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Bear')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>Sintel Trailer (W3C)</td>
+            <td class="url">https://media.w3.org/2010/05/sintel/trailer.mp4</td>
+            <td class="note">W3C official sample</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Sintel Trailer')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>News Clip 1</td>
+            <td class="url">https://stream7.iqilu.com/10339/upload_transcode/202002/09/20200209105011F0zPoYzHry.mp4</td>
+            <td class="note">Domestic news</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'News Clip 1')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>News Clip 2</td>
+            <td class="url">https://stream7.iqilu.com/10339/upload_transcode/202002/09/20200209104902N3v5Vpxuvb.mp4</td>
+            <td class="note">Domestic news</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'News Clip 2')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>4K Resolution Test (25fps)</td>
+            <td class="url">https://sdk-release.qnsdk.com/4K_25_21514.mp4</td>
+            <td class="note">High-res stress test</td>
+            <td><button class="btn-play" onclick="playVideo(this, '4K Test (25fps)')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>H.265/HEVC Encoded</td>
+            <td class="url">http://demo-videos.qnsdk.com/bbk-H265-50fps.mp4</td>
+            <td class="note">H.265 codec test</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'H.265 50fps')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>Audio-only MP4</td>
+            <td class="url">https://sdk-release.qnsdk.com/mp4.mp4</td>
+            <td class="note">Pure audio in MP4</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Audio-only MP4')">&#x25B6; Play</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── HLS / M3U8 Live ────────────────────── -->
+    <div class="section">
+      <h2 class="section-title"><span class="icon">&#x1F4E1;</span> HLS Live Stream (M3U8)</h2>
+      <p class="section-desc">HTTP Live Streaming via <code>&lt;video&gt;</code> element. Requires native HLS support or hls.js.</p>
+      <table class="media-table">
+        <thead>
+          <tr><th>Description</th><th>URL</th><th>Notes</th><th style="width:100px"></th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Apple BipBop (Multi-bitrate)</td>
+            <td class="url">https://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8</td>
+            <td class="note">Apple official — most stable</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Apple BipBop HLS')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>Mux Test Stream</td>
+            <td class="url">https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8</td>
+            <td class="note">Multi-quality ABR</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Mux HLS')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>Hubei TV (&#x6E56;&#x5317;&#x536B;&#x89C6;)</td>
+            <td class="url">http://124.160.184.108/live/5/45/3bfabc1fe16a4282b50ea095928c1f60.m3u8</td>
+            <td class="note"><span class="warn-badge">Unstable</span></td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Hubei TV')">&#x25B6; Play</button></td>
+          </tr>
+          <tr>
+            <td>Zhejiang TV (&#x6D59;&#x6C5F;&#x536B;&#x89C6;)</td>
+            <td class="url">http://124.160.184.108/live/5/45/847a4e1e97584d39a961f5604e90c1c4.m3u8</td>
+            <td class="note"><span class="warn-badge">Unstable</span></td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Zhejiang TV')">&#x25B6; Play</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- ── RTMP / RTSP ────────────────────────── -->
+    <div class="section">
+      <h2 class="section-title"><span class="icon">&#x1F50C;</span> RTMP / RTSP Streams</h2>
+      <p class="section-desc">These protocols are <b>not natively supported</b> by HTML5 <code>&lt;video&gt;</code>.
+        They require a media server proxy, MSE-based player, or native player integration.</p>
+      <table class="media-table">
+        <thead>
+          <tr><th>Protocol</th><th>URL</th><th>Notes</th><th style="width:100px"></th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>RTMP</td>
+            <td class="url">rtmp://ns8.indexforce.com/home/mystream</td>
+            <td class="note">Long-term test source</td>
+            <td><button class="btn-play" onclick="copyAndLog(this, 'RTMP')" style="background:#533483">&#x1F4CB; Copy</button></td>
+          </tr>
+          <tr>
+            <td>RTMP</td>
+            <td class="url">rtmp://media3.sinovision.net:1935/live/livestream</td>
+            <td class="note">720x406</td>
+            <td><button class="btn-play" onclick="copyAndLog(this, 'RTMP')" style="background:#533483">&#x1F4CB; Copy</button></td>
+          </tr>
+          <tr>
+            <td>RTSP</td>
+            <td class="url">rtsp://zephyr.rtsp.stream/pattern?streamKey=1fd73653a094b877b9bd78468c91adbf</td>
+            <td class="note">Use TCP mode</td>
+            <td><button class="btn-play" onclick="copyAndLog(this, 'RTSP')" style="background:#533483">&#x1F4CB; Copy</button></td>
+          </tr>
+          <tr>
+            <td>RTSP (VOD)</td>
+            <td class="url">rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mp4</td>
+            <td class="note">Big Buck Bunny VOD</td>
+            <td><button class="btn-play" onclick="copyAndLog(this, 'RTSP (VOD)')" style="background:#533483">&#x1F4CB; Copy</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Log -->
+    <div class="log-area" id="log-area"></div>
+  </div>
+
+  <script>
+    var videoEl = document.getElementById('video-player');
+    var audioEl = document.getElementById('audio-player');
+    var playerCard = document.getElementById('player-card');
+    var playerTitle = document.getElementById('player-title');
+    var playerType = document.getElementById('player-type');
+    var playerPlaceholder = document.getElementById('player-placeholder');
+    var playerError = document.getElementById('player-error');
+    var logArea = document.getElementById('log-area');
+    var activeBtn = null;
+
+    // ── Logging ─────────────────────────────────
+    function log(tag, msg, cls) {
+      cls = cls || 'info';
+      var t = new Date().toLocaleTimeString();
+      logArea.innerHTML += '<div class="log-line"><span class="tag ' + cls + '">[' + tag + ']</span> ' + msg + '</div>';
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    // ── Reset player UI ─────────────────────────
+    function resetPlayer() {
+      if (activeBtn) {
+        activeBtn.textContent = '▶ Play';
+        activeBtn = null;
+      }
+      videoEl.style.display = 'none';
+      audioEl.style.display = 'none';
+      playerError.style.display = 'none';
+      playerPlaceholder.style.display = 'block';
+      videoEl.pause();
+      audioEl.pause();
+      if (videoEl.src) URL.revokeObjectURL(videoEl.src);
+      videoEl.removeAttribute('src');
+      audioEl.removeAttribute('src');
+    }
+
+    // ── Show player card ────────────────────────
+    function showPlayer(title, typeClass, typeLabel) {
+      resetPlayer();
+      playerCard.style.display = 'block';
+      playerTitle.textContent = title;
+      playerType.textContent = typeLabel;
+      playerType.className = 'player-type ' + typeClass;
+    }
+
+    // ── Error handler ───────────────────────────
+    function onMediaError(el, url, label) {
+      var err = el.error;
+      var codes = ['', 'MEDIA_ERR_ABORTED', 'MEDIA_ERR_NETWORK', 'MEDIA_ERR_DECODE', 'MEDIA_ERR_SRC_NOT_SUPPORTED'];
+      var codeName = (err && err.code >= 1 && err.code <= 4) ? codes[err.code] : 'UNKNOWN';
+      var msg = (err && err.message) ? err.message : '';
+      playerPlaceholder.style.display = 'none';
+      playerError.style.display = 'block';
+      playerError.innerHTML = '<b>Playback failed</b><br><code>' + url + '</code><br>' +
+        'Error: ' + codeName + (msg ? ' — ' + msg : '');
+      log(label, '<span style="color:#e94560">' + codeName + '</span>' + (msg ? ': ' + msg : ''), 'error');
+    }
+
+    // ── Play MP3 Audio ──────────────────────────
+    window.playAudio = function(btn, label) {
+      var row = btn.parentElement.parentElement;
+      var url = row.querySelector('.url').textContent.trim();
+      showPlayer(label, 'audio', 'MP3 Audio');
+      if (activeBtn) activeBtn.textContent = '▶ Play';
+      activeBtn = btn;
+      btn.textContent = '■ Stop';
+
+      playerPlaceholder.style.display = 'none';
+      audioEl.style.display = 'block';
+      videoEl.style.display = 'none';
+
+      audioEl.onerror = function () { onMediaError(audioEl, url, label); };
+      audioEl.onloadedmetadata = function () {
+        log(label, 'Loaded — duration: ' + audioEl.duration.toFixed(1) + 's', 'ok');
+      };
+      audioEl.onplay = function () { log(label, 'Playing', 'info'); };
+      audioEl.onended = function () {
+        log(label, 'Finished', 'ok');
+        btn.textContent = '▶ Play';
+        activeBtn = null;
+      };
+      audioEl.src = url;
+      audioEl.load();
+      audioEl.play().catch(function (e) {
+        log(label, 'Autoplay blocked: ' + e.message, 'error');
+      });
+    };
+
+    // ── Play MP4 / M3U8 Video ───────────────────
+    window.playVideo = function(btn, label) {
+      var row = btn.parentElement.parentElement;
+      var url = row.querySelector('.url').textContent.trim();
+      var isHls = url.endsWith('.m3u8');
+      var typeClass = isHls ? 'live' : 'video';
+      var typeLabel = isHls ? 'HLS Live' : 'MP4 Video';
+      showPlayer(label, typeClass, typeLabel);
+      if (activeBtn) activeBtn.textContent = '▶ Play';
+      activeBtn = btn;
+      btn.textContent = '■ Stop';
+
+      playerPlaceholder.style.display = 'none';
+      videoEl.style.display = 'block';
+      audioEl.style.display = 'none';
+
+      videoEl.onerror = function () { onMediaError(videoEl, url, label); };
+      videoEl.onloadedmetadata = function () {
+        log(label, 'Loaded — ' + videoEl.videoWidth + 'x' + videoEl.videoHeight +
+          ', duration: ' + videoEl.duration.toFixed(1) + 's', 'ok');
+      };
+      videoEl.onplay = function () { log(label, 'Playing', 'info'); };
+      videoEl.onwaiting = function () { log(label, 'Buffering...', 'info'); };
+      videoEl.onended = function () {
+        log(label, 'Finished', 'ok');
+        btn.textContent = '▶ Play';
+        activeBtn = null;
+      };
+
+      videoEl.src = url;
+      videoEl.load();
+      videoEl.play().catch(function (e) {
+        log(label, 'Autoplay blocked: ' + e.message, 'error');
+      });
+    };
+
+    // ── Copy RTMP/RTSP URL ─────────────────────
+    window.copyAndLog = function(btn, label) {
+      var row = btn.parentElement.parentElement;
+      var url = row.querySelector('.url').textContent.trim();
+      // Try the modern Clipboard API, fallback to prompt
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(function () {
+          log(label, 'URL copied to clipboard', 'ok');
+          showCopied(btn);
+        }).catch(function () {
+          fallbackCopy(url, label, btn);
+        });
+      } else {
+        fallbackCopy(url, label, btn);
+      }
+    };
+
+    function fallbackCopy(url, label, btn) {
+      // Fallback: select from a temporary textarea
+      var ta = document.createElement('textarea');
+      ta.value = url;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        log(label, 'URL copied to clipboard', 'ok');
+        showCopied(btn);
+      } catch (e) {
+        log(label, 'Copy failed — URL: ' + url, 'error');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function showCopied(btn) {
+      var orig = btn.textContent;
+      btn.textContent = '✔ Copied';
+      setTimeout(function () { btn.textContent = orig; }, 1500);
+    }
+
+    // ── Stop button handler (global) ────────────
+    playerCard.addEventListener('click', function (e) {
+      if (e.target.classList.contains('btn-stop')) {
+        resetPlayer();
+      }
+    });
+
+    // Init
+    log('Init', 'Media test page loaded — ' +
+      navigator.userAgent.match(/Chrome\/(\d+)/)?.[0] || 'unknown browser');
+  </script>
+</body>
+
+</html>

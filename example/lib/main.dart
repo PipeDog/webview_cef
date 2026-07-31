@@ -124,6 +124,24 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
         },
       ));
 
+      // Pre-set cookies for xdf.cn test domain
+      const xdfDomain = '.xdf.cn';
+      const xdfCookies = 'gr_user_id=bc99cdaf-65bc-4814-a050-1bd6e69290f1; '
+          'x-e-dr=54a734ee-6a46-4e0f-9038-ffaa583aea41; '
+          'e2e=AB74E6984F34B301B1C6B2DCFC5C7768; '
+          'YFD_U=1785478621118-46163; '
+          'e2mf=65e61efcd06f44d9b1ab9f616cdbe92c;';
+      for (final cookie in xdfCookies.split(';')) {
+        final parts = cookie.trim().split('=');
+        if (parts.length >= 2) {
+          final key = parts[0].trim();
+          final value = parts.sublist(1).join('=').trim();
+          if (key.isNotEmpty) {
+            await WebviewManager().setCookie(xdfDomain, key, value);
+          }
+        }
+      }
+
       // Must initialize the browser before setting channels or marking ready.
       _textController.text = "www.baidu.com";
       await _controller!.initialize(url: _textController.text);
