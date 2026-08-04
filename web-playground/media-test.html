@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Media Playback Test</title>
+  <title>媒体播放测试</title>
   <style>
     * {
       margin: 0;
@@ -60,7 +60,7 @@
       margin-bottom: 28px;
     }
 
-    /* ── Player Area ─────────────────────────── */
+    /* ── 播放器区域 ─────────────────────────── */
     .player-card {
       background: #0d0d1a;
       border-radius: 12px;
@@ -150,7 +150,7 @@
       word-break: break-all;
     }
 
-    /* ── Media List ──────────────────────────── */
+    /* ── 媒体列表 ──────────────────────────── */
     .section {
       margin-bottom: 28px;
     }
@@ -270,7 +270,7 @@
       margin-left: 6px;
     }
 
-    /* ── Log area ────────────────────────────── */
+    /* ── 日志区 ────────────────────────────── */
     .log-area {
       margin-top: 24px;
       background: #0d0d1a;
@@ -310,154 +310,154 @@
 
 <body>
   <div class="container">
-    <!-- Header -->
+    <!-- 页头 -->
     <div class="header">
-      <h1>&#x1F3AC; Media Playback Test</h1>
-      <button class="btn-back" onclick="location.href='bridge.html'">&#x2190; Back to JSBridge</button>
+      <h1>&#x1F3AC; 媒体播放测试</h1>
+      <button class="btn-back" onclick="location.href='bridge.html'">&#x2190; 返回 JSBridge</button>
     </div>
-    <p class="subtitle">Test MP3, MP4, HLS/M3U8, RTMP &amp; RTSP playback in CEF WebView</p>
+    <p class="subtitle">在 CEF WebView 中测试 MP3、MP4、HLS/M3U8、RTMP 与 RTSP 播放</p>
 
-    <!-- Player -->
+    <!-- 播放器 -->
     <div class="player-card" id="player-card" style="display:none">
       <div class="player-header">
-        <span class="player-title" id="player-title">No media selected</span>
+        <span class="player-title" id="player-title">未选择媒体</span>
         <span class="player-type" id="player-type">-</span>
       </div>
       <div class="player-wrapper" id="player-wrapper">
-        <div class="player-placeholder" id="player-placeholder">Click "Play" on a media source below</div>
+        <div class="player-placeholder" id="player-placeholder">点击下方媒体源的"播放"按钮</div>
         <video id="video-player" controls crossorigin="anonymous" style="display:none"></video>
         <audio id="audio-player" controls crossorigin="anonymous" style="display:none"></audio>
         <div class="player-error" id="player-error" style="display:none"></div>
       </div>
     </div>
 
-    <!-- ── MP3 Audio ──────────────────────────── -->
+    <!-- ── MP3 音频 ──────────────────────────── -->
     <div class="section">
-      <h2 class="section-title"><span class="icon">&#x1F3B5;</span> MP3 Audio</h2>
-      <p class="section-desc">Pure audio playback via <code>&lt;audio&gt;</code> element</p>
+      <h2 class="section-title"><span class="icon">&#x1F3B5;</span> MP3 音频</h2>
+      <p class="section-desc">通过 <code>&lt;audio&gt;</code> 元素进行纯音频播放</p>
       <table class="media-table">
         <thead>
-          <tr><th>Description</th><th>URL</th><th style="width:100px"></th></tr>
+          <tr><th>描述</th><th>URL</th><th style="width:100px"></th></tr>
         </thead>
         <tbody>
           <tr>
-            <td>Cambridge Movers Listening Vol.2</td>
-            <td class="url">https://www.cambridgeenglish.org/images/153149-movers-sample-listening-test-vol2.mp3</td>
-            <td><button class="btn-play" onclick="playAudio(this, 'Cambridge Movers Vol.2')">&#x25B6; Play</button></td>
+            <td>新东方测试 MP3 #1</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/audio/1424351749200679347.mp3</td>
+            <td><button class="btn-play" onclick="playAudio(this, '新东方 MP3 #1')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>Cambridge A2 Key Listening</td>
-            <td class="url">https://www.cambridgeenglish.org/images/506891-a2-key-for-schools-listening-sample-test.mp3</td>
-            <td><button class="btn-play" onclick="playAudio(this, 'Cambridge A2 Key')">&#x25B6; Play</button></td>
+            <td>新东方测试 MP3 #2</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/audio/1424351749200679347.mp3</td>
+            <td><button class="btn-play" onclick="playAudio(this, '新东方 MP3 #2')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>MP3 with Cover Art</td>
-            <td class="url">https://sdk-release.qnsdk.com/1599039859854_9242359.mp3</td>
-            <td><button class="btn-play" onclick="playAudio(this, 'MP3 with Cover')">&#x25B6; Play</button></td>
+            <td>新东方测试 MP3 #3</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/audio/1424351749200679347.mp3</td>
+            <td><button class="btn-play" onclick="playAudio(this, '新东方 MP3 #3')">&#x25B6; 播放</button></td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- ── MP4 Video ──────────────────────────── -->
+    <!-- ── MP4 视频 ──────────────────────────── -->
     <div class="section">
-      <h2 class="section-title"><span class="icon">&#x1F3AC;</span> MP4 Video</h2>
-      <p class="section-desc">Video-on-demand playback via <code>&lt;video&gt;</code> element</p>
+      <h2 class="section-title"><span class="icon">&#x1F3AC;</span> MP4 视频</h2>
+      <p class="section-desc">通过 <code>&lt;video&gt;</code> 元素进行视频点播播放</p>
       <table class="media-table">
         <thead>
-          <tr><th>Description</th><th>URL</th><th>Features</th><th style="width:100px"></th></tr>
+          <tr><th>描述</th><th>URL</th><th>特点</th><th style="width:100px"></th></tr>
         </thead>
         <tbody>
           <tr>
-            <td>Oceans</td>
-            <td class="url">http://vjs.zencdn.net/v/oceans.mp4</td>
-            <td class="note">Classic test clip</td>
-            <td><button class="btn-play" onclick="playVideo(this, 'Oceans')">&#x25B6; Play</button></td>
+            <td>新东方测试视频（SD）#1</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4</td>
+            <td class="note">SD 测试片段</td>
+            <td><button class="btn-play" onclick="playVideo(this, '新东方 SD #1')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>Big Buck Bunny</td>
-            <td class="url">http://clips.vorwaerts-gmbh.de/big_buck_bunny.mp4</td>
-            <td class="note">Open-source animation</td>
-            <td><button class="btn-play" onclick="playVideo(this, 'Big Buck Bunny')">&#x25B6; Play</button></td>
+            <td>新东方测试视频（HD）#1</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/video/5882561725617007502.mp4</td>
+            <td class="note">HD 测试片段</td>
+            <td><button class="btn-play" onclick="playVideo(this, '新东方 HD #1')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>Bear (W3Schools)</td>
-            <td class="url">https://www.w3schools.com/html/movie.mp4</td>
-            <td class="note">Common HTML5 test</td>
-            <td><button class="btn-play" onclick="playVideo(this, 'Bear')">&#x25B6; Play</button></td>
+            <td>新东方测试视频（SD）#2</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4</td>
+            <td class="note">SD 测试片段</td>
+            <td><button class="btn-play" onclick="playVideo(this, '新东方 SD #2')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>Sintel Trailer (W3C)</td>
-            <td class="url">https://media.w3.org/2010/05/sintel/trailer.mp4</td>
-            <td class="note">W3C official sample</td>
-            <td><button class="btn-play" onclick="playVideo(this, 'Sintel Trailer')">&#x25B6; Play</button></td>
+            <td>新东方测试视频（HD）#2</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/video/5882561725617007502.mp4</td>
+            <td class="note">HD 测试片段</td>
+            <td><button class="btn-play" onclick="playVideo(this, '新东方 HD #2')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>News Clip 1</td>
-            <td class="url">https://stream7.iqilu.com/10339/upload_transcode/202002/09/20200209105011F0zPoYzHry.mp4</td>
-            <td class="note">Domestic news</td>
-            <td><button class="btn-play" onclick="playVideo(this, 'News Clip 1')">&#x25B6; Play</button></td>
+            <td>新东方测试视频（SD）#3</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4</td>
+            <td class="note">SD 测试片段</td>
+            <td><button class="btn-play" onclick="playVideo(this, '新东方 SD #3')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>News Clip 2</td>
-            <td class="url">https://stream7.iqilu.com/10339/upload_transcode/202002/09/20200209104902N3v5Vpxuvb.mp4</td>
-            <td class="note">Domestic news</td>
-            <td><button class="btn-play" onclick="playVideo(this, 'News Clip 2')">&#x25B6; Play</button></td>
+            <td>新东方测试视频（HD）#3</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/video/5882561725617007502.mp4</td>
+            <td class="note">HD 测试片段</td>
+            <td><button class="btn-play" onclick="playVideo(this, '新东方 HD #3')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>4K Resolution Test (25fps)</td>
-            <td class="url">https://sdk-release.qnsdk.com/4K_25_21514.mp4</td>
-            <td class="note">High-res stress test</td>
-            <td><button class="btn-play" onclick="playVideo(this, '4K Test (25fps)')">&#x25B6; Play</button></td>
+            <td>新东方测试视频（SD）#4</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4</td>
+            <td class="note">SD 测试片段</td>
+            <td><button class="btn-play" onclick="playVideo(this, '新东方 SD #4')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>H.265/HEVC Encoded</td>
-            <td class="url">http://demo-videos.qnsdk.com/bbk-H265-50fps.mp4</td>
-            <td class="note">H.265 codec test</td>
-            <td><button class="btn-play" onclick="playVideo(this, 'H.265 50fps')">&#x25B6; Play</button></td>
+            <td>新东方测试视频（HD）#4</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/video/5882561725617007502.mp4</td>
+            <td class="note">HD 测试片段</td>
+            <td><button class="btn-play" onclick="playVideo(this, '新东方 HD #4')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>Audio-only MP4</td>
-            <td class="url">https://sdk-release.qnsdk.com/mp4.mp4</td>
-            <td class="note">Pure audio in MP4</td>
-            <td><button class="btn-play" onclick="playVideo(this, 'Audio-only MP4')">&#x25B6; Play</button></td>
+            <td>新东方测试视频（SD）#5</td>
+            <td class="url">https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4</td>
+            <td class="note">SD 测试片段</td>
+            <td><button class="btn-play" onclick="playVideo(this, '新东方 SD #5')">&#x25B6; 播放</button></td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- ── HLS / M3U8 Live ────────────────────── -->
+    <!-- ── HLS / M3U8 直播 ────────────────────── -->
     <div class="section">
-      <h2 class="section-title"><span class="icon">&#x1F4E1;</span> HLS Live Stream (M3U8)</h2>
-      <p class="section-desc">HTTP Live Streaming via <code>&lt;video&gt;</code> element. Requires native HLS support or hls.js.</p>
+      <h2 class="section-title"><span class="icon">&#x1F4E1;</span> HLS 直播流（M3U8）</h2>
+      <p class="section-desc">通过 <code>&lt;video&gt;</code> 元素进行 HTTP 直播流播放。需要原生 HLS 支持或 hls.js。</p>
       <table class="media-table">
         <thead>
-          <tr><th>Description</th><th>URL</th><th>Notes</th><th style="width:100px"></th></tr>
+          <tr><th>描述</th><th>URL</th><th>备注</th><th style="width:100px"></th></tr>
         </thead>
         <tbody>
           <tr>
-            <td>Apple BipBop (Multi-bitrate)</td>
+            <td>Apple BipBop（多码率）</td>
             <td class="url">https://devimages.apple.com/iphone/samples/bipbop/bipbopall.m3u8</td>
-            <td class="note">Apple official — most stable</td>
-            <td><button class="btn-play" onclick="playVideo(this, 'Apple BipBop HLS')">&#x25B6; Play</button></td>
+            <td class="note">Apple 官方 — 最稳定</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Apple BipBop HLS')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>Mux Test Stream</td>
+            <td>Mux 测试流</td>
             <td class="url">https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8</td>
-            <td class="note">Multi-quality ABR</td>
-            <td><button class="btn-play" onclick="playVideo(this, 'Mux HLS')">&#x25B6; Play</button></td>
+            <td class="note">多码率自适应（ABR）</td>
+            <td><button class="btn-play" onclick="playVideo(this, 'Mux HLS')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>Hubei TV (&#x6E56;&#x5317;&#x536B;&#x89C6;)</td>
+            <td>湖北卫视</td>
             <td class="url">http://124.160.184.108/live/5/45/3bfabc1fe16a4282b50ea095928c1f60.m3u8</td>
-            <td class="note"><span class="warn-badge">Unstable</span></td>
-            <td><button class="btn-play" onclick="playVideo(this, 'Hubei TV')">&#x25B6; Play</button></td>
+            <td class="note"><span class="warn-badge">不稳定</span></td>
+            <td><button class="btn-play" onclick="playVideo(this, '湖北卫视')">&#x25B6; 播放</button></td>
           </tr>
           <tr>
-            <td>Zhejiang TV (&#x6D59;&#x6C5F;&#x536B;&#x89C6;)</td>
+            <td>浙江卫视</td>
             <td class="url">http://124.160.184.108/live/5/45/847a4e1e97584d39a961f5604e90c1c4.m3u8</td>
-            <td class="note"><span class="warn-badge">Unstable</span></td>
-            <td><button class="btn-play" onclick="playVideo(this, 'Zhejiang TV')">&#x25B6; Play</button></td>
+            <td class="note"><span class="warn-badge">不稳定</span></td>
+            <td><button class="btn-play" onclick="playVideo(this, '浙江卫视')">&#x25B6; 播放</button></td>
           </tr>
         </tbody>
       </table>
@@ -465,43 +465,43 @@
 
     <!-- ── RTMP / RTSP ────────────────────────── -->
     <div class="section">
-      <h2 class="section-title"><span class="icon">&#x1F50C;</span> RTMP / RTSP Streams</h2>
-      <p class="section-desc">These protocols are <b>not natively supported</b> by HTML5 <code>&lt;video&gt;</code>.
-        They require a media server proxy, MSE-based player, or native player integration.</p>
+      <h2 class="section-title"><span class="icon">&#x1F50C;</span> RTMP / RTSP 直播流</h2>
+      <p class="section-desc">HTML5 <code>&lt;video&gt;</code> 元素<b>不原生支持</b>这些协议。
+        它们需要媒体服务器代理、基于 MSE 的播放器，或原生播放器集成。</p>
       <table class="media-table">
         <thead>
-          <tr><th>Protocol</th><th>URL</th><th>Notes</th><th style="width:100px"></th></tr>
+          <tr><th>协议</th><th>URL</th><th>备注</th><th style="width:100px"></th></tr>
         </thead>
         <tbody>
           <tr>
             <td>RTMP</td>
             <td class="url">rtmp://ns8.indexforce.com/home/mystream</td>
-            <td class="note">Long-term test source</td>
-            <td><button class="btn-play" onclick="copyAndLog(this, 'RTMP')" style="background:#533483">&#x1F4CB; Copy</button></td>
+            <td class="note">长期测试源</td>
+            <td><button class="btn-play" onclick="copyAndLog(this, 'RTMP')" style="background:#533483">&#x1F4CB; 复制</button></td>
           </tr>
           <tr>
             <td>RTMP</td>
             <td class="url">rtmp://media3.sinovision.net:1935/live/livestream</td>
             <td class="note">720x406</td>
-            <td><button class="btn-play" onclick="copyAndLog(this, 'RTMP')" style="background:#533483">&#x1F4CB; Copy</button></td>
+            <td><button class="btn-play" onclick="copyAndLog(this, 'RTMP')" style="background:#533483">&#x1F4CB; 复制</button></td>
           </tr>
           <tr>
             <td>RTSP</td>
             <td class="url">rtsp://zephyr.rtsp.stream/pattern?streamKey=1fd73653a094b877b9bd78468c91adbf</td>
-            <td class="note">Use TCP mode</td>
-            <td><button class="btn-play" onclick="copyAndLog(this, 'RTSP')" style="background:#533483">&#x1F4CB; Copy</button></td>
+            <td class="note">使用 TCP 模式</td>
+            <td><button class="btn-play" onclick="copyAndLog(this, 'RTSP')" style="background:#533483">&#x1F4CB; 复制</button></td>
           </tr>
           <tr>
-            <td>RTSP (VOD)</td>
+            <td>RTSP（点播）</td>
             <td class="url">rtsp://wowzaec2demo.streamlock.net/vod/mp4:BigBuckBunny_115k.mp4</td>
-            <td class="note">Big Buck Bunny VOD</td>
-            <td><button class="btn-play" onclick="copyAndLog(this, 'RTSP (VOD)')" style="background:#533483">&#x1F4CB; Copy</button></td>
+            <td class="note">Big Buck Bunny 点播</td>
+            <td><button class="btn-play" onclick="copyAndLog(this, 'RTSP（点播）')" style="background:#533483">&#x1F4CB; 复制</button></td>
           </tr>
         </tbody>
       </table>
     </div>
 
-    <!-- Log -->
+    <!-- 日志 -->
     <div class="log-area" id="log-area"></div>
   </div>
 
@@ -516,7 +516,7 @@
     var logArea = document.getElementById('log-area');
     var activeBtn = null;
 
-    // ── Logging ─────────────────────────────────
+    // ── 日志 ─────────────────────────────────
     function log(tag, msg, cls) {
       cls = cls || 'info';
       var t = new Date().toLocaleTimeString();
@@ -524,10 +524,10 @@
       logArea.scrollTop = logArea.scrollHeight;
     }
 
-    // ── Reset player UI ─────────────────────────
+    // ── 重置播放器 UI ─────────────────────────
     function resetPlayer() {
       if (activeBtn) {
-        activeBtn.textContent = '▶ Play';
+        activeBtn.textContent = '▶ 播放';
         activeBtn = null;
       }
       videoEl.style.display = 'none';
@@ -541,7 +541,7 @@
       audioEl.removeAttribute('src');
     }
 
-    // ── Show player card ────────────────────────
+    // ── 显示播放器卡片 ────────────────────────
     function showPlayer(title, typeClass, typeLabel) {
       resetPlayer();
       playerCard.style.display = 'block';
@@ -550,7 +550,7 @@
       playerType.className = 'player-type ' + typeClass;
     }
 
-    // ── Error handler ───────────────────────────
+    // ── 错误处理 ───────────────────────────
     function onMediaError(el, url, label) {
       var err = el.error;
       var codes = ['', 'MEDIA_ERR_ABORTED', 'MEDIA_ERR_NETWORK', 'MEDIA_ERR_DECODE', 'MEDIA_ERR_SRC_NOT_SUPPORTED'];
@@ -558,19 +558,19 @@
       var msg = (err && err.message) ? err.message : '';
       playerPlaceholder.style.display = 'none';
       playerError.style.display = 'block';
-      playerError.innerHTML = '<b>Playback failed</b><br><code>' + url + '</code><br>' +
-        'Error: ' + codeName + (msg ? ' — ' + msg : '');
+      playerError.innerHTML = '<b>播放失败</b><br><code>' + url + '</code><br>' +
+        '错误: ' + codeName + (msg ? ' — ' + msg : '');
       log(label, '<span style="color:#e94560">' + codeName + '</span>' + (msg ? ': ' + msg : ''), 'error');
     }
 
-    // ── Play MP3 Audio ──────────────────────────
+    // ── 播放 MP3 音频 ──────────────────────────
     window.playAudio = function(btn, label) {
       var row = btn.parentElement.parentElement;
       var url = row.querySelector('.url').textContent.trim();
-      showPlayer(label, 'audio', 'MP3 Audio');
-      if (activeBtn) activeBtn.textContent = '▶ Play';
+      showPlayer(label, 'audio', 'MP3 音频');
+      if (activeBtn) activeBtn.textContent = '▶ 播放';
       activeBtn = btn;
-      btn.textContent = '■ Stop';
+      btn.textContent = '■ 停止';
 
       playerPlaceholder.style.display = 'none';
       audioEl.style.display = 'block';
@@ -578,32 +578,32 @@
 
       audioEl.onerror = function () { onMediaError(audioEl, url, label); };
       audioEl.onloadedmetadata = function () {
-        log(label, 'Loaded — duration: ' + audioEl.duration.toFixed(1) + 's', 'ok');
+        log(label, '已加载 — 时长: ' + audioEl.duration.toFixed(1) + 's', 'ok');
       };
-      audioEl.onplay = function () { log(label, 'Playing', 'info'); };
+      audioEl.onplay = function () { log(label, '播放中', 'info'); };
       audioEl.onended = function () {
-        log(label, 'Finished', 'ok');
-        btn.textContent = '▶ Play';
+        log(label, '播放完成', 'ok');
+        btn.textContent = '▶ 播放';
         activeBtn = null;
       };
       audioEl.src = url;
       audioEl.load();
       audioEl.play().catch(function (e) {
-        log(label, 'Autoplay blocked: ' + e.message, 'error');
+        log(label, '自动播放被拦截: ' + e.message, 'error');
       });
     };
 
-    // ── Play MP4 / M3U8 Video ───────────────────
+    // ── 播放 MP4 / M3U8 视频 ───────────────────
     window.playVideo = function(btn, label) {
       var row = btn.parentElement.parentElement;
       var url = row.querySelector('.url').textContent.trim();
       var isHls = url.endsWith('.m3u8');
       var typeClass = isHls ? 'live' : 'video';
-      var typeLabel = isHls ? 'HLS Live' : 'MP4 Video';
+      var typeLabel = isHls ? 'HLS 直播' : 'MP4 视频';
       showPlayer(label, typeClass, typeLabel);
-      if (activeBtn) activeBtn.textContent = '▶ Play';
+      if (activeBtn) activeBtn.textContent = '▶ 播放';
       activeBtn = btn;
-      btn.textContent = '■ Stop';
+      btn.textContent = '■ 停止';
 
       playerPlaceholder.style.display = 'none';
       videoEl.style.display = 'block';
@@ -611,32 +611,32 @@
 
       videoEl.onerror = function () { onMediaError(videoEl, url, label); };
       videoEl.onloadedmetadata = function () {
-        log(label, 'Loaded — ' + videoEl.videoWidth + 'x' + videoEl.videoHeight +
-          ', duration: ' + videoEl.duration.toFixed(1) + 's', 'ok');
+        log(label, '已加载 — ' + videoEl.videoWidth + 'x' + videoEl.videoHeight +
+          '，时长: ' + videoEl.duration.toFixed(1) + 's', 'ok');
       };
-      videoEl.onplay = function () { log(label, 'Playing', 'info'); };
-      videoEl.onwaiting = function () { log(label, 'Buffering...', 'info'); };
+      videoEl.onplay = function () { log(label, '播放中', 'info'); };
+      videoEl.onwaiting = function () { log(label, '缓冲中...', 'info'); };
       videoEl.onended = function () {
-        log(label, 'Finished', 'ok');
-        btn.textContent = '▶ Play';
+        log(label, '播放完成', 'ok');
+        btn.textContent = '▶ 播放';
         activeBtn = null;
       };
 
       videoEl.src = url;
       videoEl.load();
       videoEl.play().catch(function (e) {
-        log(label, 'Autoplay blocked: ' + e.message, 'error');
+        log(label, '自动播放被拦截: ' + e.message, 'error');
       });
     };
 
-    // ── Copy RTMP/RTSP URL ─────────────────────
+    // ── 复制 RTMP/RTSP URL ─────────────────────
     window.copyAndLog = function(btn, label) {
       var row = btn.parentElement.parentElement;
       var url = row.querySelector('.url').textContent.trim();
-      // Try the modern Clipboard API, fallback to prompt
+      // 优先尝试新版 Clipboard API，失败则回退到 prompt 方式
       if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(url).then(function () {
-          log(label, 'URL copied to clipboard', 'ok');
+          log(label, 'URL 已复制到剪贴板', 'ok');
           showCopied(btn);
         }).catch(function () {
           fallbackCopy(url, label, btn);
@@ -647,7 +647,7 @@
     };
 
     function fallbackCopy(url, label, btn) {
-      // Fallback: select from a temporary textarea
+      // 兜底方案：从临时 textarea 中选中复制
       var ta = document.createElement('textarea');
       ta.value = url;
       ta.style.position = 'fixed';
@@ -656,30 +656,30 @@
       ta.select();
       try {
         document.execCommand('copy');
-        log(label, 'URL copied to clipboard', 'ok');
+        log(label, 'URL 已复制到剪贴板', 'ok');
         showCopied(btn);
       } catch (e) {
-        log(label, 'Copy failed — URL: ' + url, 'error');
+        log(label, '复制失败 — URL: ' + url, 'error');
       }
       document.body.removeChild(ta);
     }
 
     function showCopied(btn) {
       var orig = btn.textContent;
-      btn.textContent = '✔ Copied';
+      btn.textContent = '✔ 已复制';
       setTimeout(function () { btn.textContent = orig; }, 1500);
     }
 
-    // ── Stop button handler (global) ────────────
+    // ── 停止按钮处理（全局） ────────────
     playerCard.addEventListener('click', function (e) {
       if (e.target.classList.contains('btn-stop')) {
         resetPlayer();
       }
     });
 
-    // Init
-    log('Init', 'Media test page loaded — ' +
-      navigator.userAgent.match(/Chrome\/(\d+)/)?.[0] || 'unknown browser');
+    // 初始化
+    log('Init', '媒体测试页已加载 — ' +
+      navigator.userAgent.match(/Chrome\/(\d+)/)?.[0] || '未知浏览器');
   </script>
 </body>
 

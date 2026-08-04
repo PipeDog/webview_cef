@@ -77,7 +77,11 @@ public:
 private:
     uint32_t                        m_uMode = 1;                        //process mode
     bool                            m_bEnableGPU = false;               //enable gpu
-    CefString                       m_strFilterDomain;                  //insecure domain whitelist       
+    CefString                       m_strFilterDomain;                  //insecure domain whitelist
+    // Media player takeover: the JS injection script (string constant from
+    // Dart) received via extra_info in OnBrowserCreated and evaluated in every
+    // frame's V8 context by OnContextCreated. See media_player_design.md.
+    CefString                       m_mediaPlayerInjectScript;
 
     CefRefPtr<WebviewHandler>       m_handler;                          //webview handler for main process
     std::shared_ptr<CefJSBridge>	m_render_js_bridge;                 //js bridge for render process

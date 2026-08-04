@@ -11,6 +11,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  # Native media player backend (libmdk). Used by the media player takeover
+  # feature to play media formats (MP3/MP4/HLS...) that the Spotify CEF build
+  # cannot decode. See media_player_design.md.
+  fvp: ^0.37.3
 
 dev_dependencies:
   flutter_test:

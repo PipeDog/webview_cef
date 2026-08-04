@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:webview_cef/src/media/media_player_js_injection.dart';
 import 'package:webview_cef/src/webview_inject_user_script.dart';
 
 import 'webview.dart';
@@ -127,6 +128,9 @@ class WebviewManager extends ValueNotifier<bool> {
       if (cachePath != null && cachePath.isNotEmpty) {
         args['cachePath'] = cachePath;
       }
+      // Media player takeover: ship the JS injection script so the native
+      // side can evaluate it in every frame's V8 context at creation.
+      args['mediaPlayerInjectScript'] = mediaPlayerInjectScript;
       await pluginChannel.invokeMethod('init', args);
       pluginChannel.setMethodCallHandler(methodCallhandler);
       // Wait for the platform to complete initialization.
@@ -197,6 +201,14 @@ class WebviewManager extends ValueNotifier<bool> {
       case 'onLoadStart':
         int browserId = call.arguments["browserId"] as int;
         String urlId = call.arguments["urlId"] as String;
+        bool isMain = (call.arguments["isMain"] as bool?) ?? true;
+
+        // Media player takeover: cross-document navigation of the page itself
+        // immediately closes the player (decision 13). Main frame only —
+        // iframe loads and SPA route changes never close it.
+        if (isMain) {
+          _webViews[browserId]?.mediaPlayerController.onPageNavigation();
+        }
 
         // Clear any visible tooltip when navigating away from the current
         // page — CEF does not guarantee an empty OnTooltip() before the

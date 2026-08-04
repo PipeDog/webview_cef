@@ -217,34 +217,40 @@ namespace webview_cef {
 			};
 
 
-            m_handler->onLoadStart = [=, this](int nBrowserId, std::string urlId)
+            m_handler->onLoadStart = [=, this](int nBrowserId, std::string urlId, bool isMainFrame)
             {
                 if (m_invokeFunc)
                 {
                     WValue* bId = webview_value_new_int(nBrowserId);
                     WValue* uId = webview_value_new_string(const_cast<char*>(urlId.c_str()));
+                    WValue* main = webview_value_new_bool(isMainFrame);
                     WValue* retMap = webview_value_new_map();
                     webview_value_set_string(retMap, "browserId", bId);
                     webview_value_set_string(retMap, "urlId", uId);
+                    webview_value_set_string(retMap, "isMain", main);
                     m_invokeFunc("onLoadStart", retMap);
                     webview_value_unref(bId);
                     webview_value_unref(uId);
+                    webview_value_unref(main);
                     webview_value_unref(retMap);
                 }
             };
 
-            m_handler->onLoadEnd = [=, this](int nBrowserId, std::string urlId)
+            m_handler->onLoadEnd = [=, this](int nBrowserId, std::string urlId, bool isMainFrame)
             {
                 if (m_invokeFunc)
                 {
                     WValue* bId = webview_value_new_int(nBrowserId);
                     WValue* uId = webview_value_new_string(const_cast<char*>(urlId.c_str()));
+                    WValue* main = webview_value_new_bool(isMainFrame);
                     WValue* retMap = webview_value_new_map();
                     webview_value_set_string(retMap, "browserId", bId);
                     webview_value_set_string(retMap, "urlId", uId);
+                    webview_value_set_string(retMap, "isMain", main);
                     m_invokeFunc("onLoadEnd", retMap);
                     webview_value_unref(bId);
                     webview_value_unref(uId);
+                    webview_value_unref(main);
                     webview_value_unref(retMap);
                 }
             };
@@ -357,6 +363,13 @@ namespace webview_cef {
 						WValue* cp = webview_value_get_by_string(values, "cachePath");
 						if (cp != nullptr && webview_value_get_type(cp) == Webview_Value_Type_String) {
 							setCefCachePath(webview_value_get_string(cp));
+						}
+						// Media player takeover: cache the JS injection script so
+						// it can be shipped to renderer processes via extra_info
+						// at browser creation (see createBrowser).
+						WValue* mp = webview_value_get_by_string(values, "mediaPlayerInjectScript");
+						if (mp != nullptr && webview_value_get_type(mp) == Webview_Value_Type_String) {
+							m_handler->setMediaPlayerInjectScript(webview_value_get_string(mp));
 						}
 					} else {
 						// Old API: init arg is a bare string (userAgent).
@@ -614,6 +627,17 @@ namespace webview_cef {
 			int browserId = int(webview_value_get_int(webview_value_get_list_value(values, 0)));
 			const auto code = webview_value_get_string(webview_value_get_list_value(values, 1));
 			m_handler->executeJavaScript(browserId, code);
+			result(1, nullptr);
+		}
+		else if(name.compare("executeJavaScriptInFrame") == 0){
+			// Media player takeover: write-back into a specific frame (e.g. an
+			// iframe's media element). |frameId| is the string frame identifier
+			// previously delivered with the javascriptChannelMessage (CEF 122+
+			// uses string identifiers).
+			int browserId = int(webview_value_get_int(webview_value_get_list_value(values, 0)));
+			const auto frameId = webview_value_get_string(webview_value_get_list_value(values, 1));
+			const auto code = webview_value_get_string(webview_value_get_list_value(values, 2));
+			m_handler->executeJavaScriptInFrame(browserId, frameId, code);
 			result(1, nullptr);
 		}
 		else if(name.compare("evaluateJavascript") == 0){

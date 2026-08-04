@@ -61,8 +61,11 @@ public:
     std::function<void(int browserId, int32_t x, int32_t y, int32_t height)> onImeCompositionRangeChangedMessage;
     //webpage message
     std::function<void(std::string, std::string, std::string, int browserId, std::string)> onJavaScriptChannelMessage;
-    std::function<void(int browserId, std::string url)> onLoadStart;
-    std::function<void(int browserId, std::string url)> onLoadEnd;
+    // |isMainFrame| distinguishes main-frame navigation from iframe loads so
+    // the Dart side can close the media player only on cross-document
+    // navigation of the page itself (media_player_design.md decision 13).
+    std::function<void(int browserId, std::string url, bool isMainFrame)> onLoadStart;
+    std::function<void(int browserId, std::string url, bool isMainFrame)> onLoadEnd;
     // Navigation / loading callback (before navigation starts)
     std::function<void(int browserId, std::string url)> onBeforeBrowseCallback;
     // Loading progress (0.0 – 1.0)
@@ -227,12 +230,25 @@ public:
     void setJavaScriptChannels(int browserId, const std::vector<std::string> channels);
     void sendJavaScriptChannelCallBack(const bool error, const std::string result, const std::string callbackId, const int browserId, const std::string frameId);
     void executeJavaScript(int browserId, const std::string code, std::function<void(CefRefPtr<CefValue>)> callback = nullptr);
+    // Media player takeover: JS injection script shipped to renderer processes
+    // via extra_info at browser creation (evaluated in OnContextCreated).
+    void setMediaPlayerInjectScript(const std::string& script);
+    // Execute |code| in the frame identified by |frameId| (string identifier
+    // as delivered by CefFrame::GetIdentifier, e.g. an iframe's media element
+    // state write-back). Silently does nothing when the frame no longer
+    // exists (frameId invalidated by navigation — see
+    // media_player_design.md §4.2).
+    void executeJavaScriptInFrame(int browserId, const std::string& frameId, const std::string code);
     
 private:
     // List of existing browser windows. Only accessed on the CEF UI thread.
     std::unordered_map<int, browser_info> browser_map_;
 
     std::unordered_map<std::string, std::function<void(CefRefPtr<CefValue>)>> js_callbacks_;
+
+    // Media player takeover: JS injection script (Dart constant) passed to
+    // renderer processes via extra_info at browser creation.
+    std::string media_player_inject_script_;
 
 #ifdef WEBVIEW_CEF_GPU_TEXTURE
     // GPU diagnostic state: whether any accelerated-paint frame has arrived, and

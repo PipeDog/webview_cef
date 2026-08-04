@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>媒体合并测试</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #16161d; color: #e0e0e0; padding: 20px; }
+    .container { max-width: 860px; margin: 0 auto; }
+    h1 { color: #e94560; font-size: 1.4rem; margin-bottom: 6px; }
+    h1 small { color: #707090; font-size: 0.8rem; font-weight: 400; }
+    .subtitle { color: #9090b0; font-size: 0.85rem; margin-bottom: 20px; }
+    .section { background: #1e1e2a; border: 1px solid #2a2a3c; border-radius: 10px; padding: 16px; margin-bottom: 18px; }
+    .section h2 { font-size: 1rem; color: #fca311; margin-bottom: 8px; }
+    .section p.desc { font-size: 0.78rem; color: #707090; margin-bottom: 10px; }
+    .url { font-size: 0.78rem; color: #8ecae6; font-family: 'SF Mono', 'Fira Code', monospace; background: #16161d; border: 1px solid #2a2a3c; border-radius: 6px; padding: 6px 10px; margin-bottom: 10px; word-break: break-all; }
+    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    button { background: #e94560; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
+    button.alt { background: #3a3a4e; }
+    video, audio { width: 100%; max-height: 260px; background: #000; display: block; }
+    .status { font-size: 0.8rem; color: #8ecae6; font-family: 'SF Mono', monospace; }
+    .status.ok { color: #66bb6a; }
+    /* 预留直播 Section：虚线边框 + 置灰样式，表示"尚未实现"。 */
+    .section.reserved { border-style: dashed; opacity: 0.8; }
+    .section.reserved h2 { color: #707090; }
+    .section.reserved p.desc { color: #9090b0; }
+    #cef-check { font-size: 0.8rem; color: #8ecae6; font-family: 'SF Mono', monospace; margin-bottom: 16px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>媒体合并测试 <small>(由 media-iframe-content.html + media-takeover-test.html 合并)</small></h1>
+    <p class="subtitle">以下 3 个媒体 URL 的播放入口。点击播放 → 应弹出原生播放器（JS 注入的媒体接管）。</p>
+
+    <div id="cef-check">$cef: 检测中...</div>
+
+    <!-- 1. MP4（sd） -->
+    <div class="section">
+      <h2>1. MP4 视频（sd）</h2>
+      <div class="url">https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4</div>
+      <div class="row">
+        <button onclick="playEl('v1')">▶ 播放</button>
+        <button class="alt" onclick="pauseEl('v1')">⏸ 暂停</button>
+        <span class="status" id="s1">已暂停</span>
+      </div>
+      <video id="v1" controls src="https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4"></video>
+    </div>
+
+    <!-- 2. MP4 -->
+    <div class="section">
+      <h2>2. MP4 视频</h2>
+      <div class="url">https://nbk-test-cdn.xdf.cn/video/5882561725617007502.mp4</div>
+      <div class="row">
+        <button onclick="playEl('v2')">▶ 播放</button>
+        <button class="alt" onclick="pauseEl('v2')">⏸ 暂停</button>
+        <span class="status" id="s2">已暂停</span>
+      </div>
+      <video id="v2" controls src="https://nbk-test-cdn.xdf.cn/video/5882561725617007502.mp4"></video>
+    </div>
+
+    <!-- 3. MP3 音频 -->
+    <div class="section">
+      <h2>3. MP3 音频</h2>
+      <div class="url">https://nbk-test-cdn.xdf.cn/audio/1424351749200679347.mp3</div>
+      <div class="row">
+        <button onclick="playEl('a1')">▶ 播放</button>
+        <button class="alt" onclick="pauseEl('a1')">⏸ 暂停</button>
+        <span class="status" id="s3">已暂停</span>
+      </div>
+      <audio id="a1" controls src="https://nbk-test-cdn.xdf.cn/audio/1424351749200679347.mp3"></audio>
+    </div>
+
+    <!-- 4. 直播流 — 预留（尚未实现） -->
+    <div class="section reserved">
+      <h2>4. 直播流 — RTMP / HLS / FLV（预留）</h2>
+      <p class="desc">TODO：直播流支持（RTMP / HLS / FLV 等）尚未实现。本区域后续将扩展为直播流播放入口。</p>
+    </div>
+  </div>
+
+  <script>
+    // 检测 $cef V8 扩展 / MediaPlayer 通道是否可用。
+    var cefEl = document.getElementById('cef-check');
+    try {
+      cefEl.textContent = '$cef: ' + (typeof $cef) +
+        (typeof $cef === 'object' && $cef ? ' — MediaPlayer 通道: ' +
+          (typeof ($cef.MediaPlayer && $cef.MediaPlayer.postMessage) === 'function' ? '可用' : '缺失') : '');
+    } catch (e) {
+      cefEl.textContent = '$cef: 出错 — ' + e.message;
+    }
+
+    // 通用辅助函数：状态跟随 play/pause/timeupdate/ended 事件。
+    function bindMedia(id, stateId) {
+      var m = document.getElementById(id);
+      var s = document.getElementById(stateId);
+      m.addEventListener('play', function () { s.textContent = '播放中'; });
+      m.addEventListener('pause', function () { s.textContent = '已暂停'; });
+      m.addEventListener('timeupdate', function () { s.textContent = '播放中 ' + m.currentTime.toFixed(1) + 's'; });
+      m.addEventListener('ended', function () { s.textContent = '已结束'; });
+      m.addEventListener('error', function () { s.textContent = '出错'; });
+    }
+    var stateIds = { v1: 's1', v2: 's2', a1: 's3' };
+    function playEl(id) {
+      var m = document.getElementById(id);
+      m.play().catch(function (e) {
+        document.getElementById(stateIds[id]).textContent = '被拦截: ' + e.name;
+      });
+    }
+    function pauseEl(id) { document.getElementById(id).pause(); }
+
+    bindMedia('v1', 's1');
+    bindMedia('v2', 's2');
+    bindMedia('a1', 's3');
+  </script>
+</body>
+</html>

@@ -99,6 +99,12 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
               .evaluateJavascript("abc('test')")
               .then((value) => debugPrint(value));
         },
+        onConsoleMessage: (level, message, source, line) {
+          // Page console output, including the media-player takeover
+          // diagnostics ([cef-media-player] ...). Level: 0=verbose, 1=info,
+          // 2=warning, 3=error.
+          debugPrint("console[$level] $message ($source:$line)");
+        },
         onNavigateRequest: (controller, url) {
           debugPrint("onNavigateRequest => $url");
           // Example: block navigation to certain domains
@@ -184,6 +190,20 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
       '${Platform.pathSeparator}..'
       '${Platform.pathSeparator}web-playground'
       '${Platform.pathSeparator}bridge.html',
+    ).absolute;
+    final fileUrl = file.uri.toString();
+    _controller?.loadUrl(fileUrl);
+    _textController.text = fileUrl;
+  }
+
+  /// Media player takeover test page (media_player_design.md §8): iframes,
+  /// SPA routing, gesture policy, element removal, custom controls.
+  void _loadMediaTest() {
+    final file = File(
+      '${Directory.current.path}'
+      '${Platform.pathSeparator}..'
+      '${Platform.pathSeparator}web-playground'
+      '${Platform.pathSeparator}media-takeover-test.html',
     ).absolute;
     final fileUrl = file.uri.toString();
     _controller?.loadUrl(fileUrl);
@@ -281,6 +301,13 @@ class _MyAppState extends State<MyApp> with SingleTickerProviderStateMixin {
                 child: MaterialButton(
                   onPressed: _loadLocalHtml,
                   child: const Icon(Icons.file_open),
+                ),
+              ),
+              SizedBox(
+                height: 48,
+                child: MaterialButton(
+                  onPressed: _loadMediaTest,
+                  child: const Icon(Icons.movie_filter),
                 ),
               ),
               Expanded(

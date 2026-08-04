@@ -4,6 +4,10 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'media/media_player_controller.dart';
+import 'media/media_player_js_bridge.dart';
+import 'media/media_player_overlay.dart';
+import 'media/media_player_types.dart';
 import 'webview_manager.dart';
 import 'webview_events_listener.dart';
 import 'webview_javascript.dart';
@@ -57,8 +61,45 @@ class WebViewController extends ValueNotifier<bool> {
   WebViewEventsListener? _listener;
   WebViewEventsListener? get listener => _listener;
 
+  /// Media player takeover: one native player per webview, lazily created
+  /// (audio/video share it, mutually exclusive — design §4.3).
+  MediaPlayerController? _mediaPlayerController;
+  MediaPlayerController get mediaPlayerController =>
+      _mediaPlayerController ??=
+          MediaPlayerController(executeJavaScriptInFrame: (frameId, code) {
+        executeJavaScriptInFrame(frameId, code);
+      });
+
   get onJavascriptChannelMessage => (final String channelName,
           final String message, final String callbackId, final String frameId) {
+        // Media player takeover: the internal MediaPlayer channel is
+        // handled by the player controller, invisible to business channels.
+        if (channelName == kMediaPlayerChannelName) {
+          final decoded = mediaPlayerDecodeMessage(message, frameId);
+          if (decoded == null) return;
+          final request = decoded.request;
+          if (request == null) return;
+          switch (decoded.command) {
+            case MediaPlayerCommands.playRequest:
+              mediaPlayerController.onPlayRequest(request as MediaPlayRequest);
+              break;
+            case MediaPlayerCommands.pauseRequest:
+              mediaPlayerController.onPauseRequest(request as MediaPauseRequest);
+              break;
+            case MediaPlayerCommands.seekRequest:
+              mediaPlayerController.onSeekRequest(request as MediaSeekRequest);
+              break;
+            case MediaPlayerCommands.propertyChange:
+              mediaPlayerController
+                  .onPropertyChange(request as MediaPropertyChange);
+              break;
+            case MediaPlayerCommands.elementRemoved:
+              mediaPlayerController
+                  .onElementRemoved(request as MediaElementRemoved);
+              break;
+          }
+          return;
+        }
         if (_javascriptChannels.containsKey(channelName)) {
           _javascriptChannels[channelName]!.onMessageReceived(
               JavascriptMessage(message, callbackId, frameId));
@@ -104,6 +145,10 @@ class WebViewController extends ValueNotifier<bool> {
     await _creatingCompleter.future;
     if (!_isDisposed) {
       _isDisposed = true;
+      // Media player takeover: release the fvp instance with the webview
+      // (design §4.3 lifecycle).
+      _mediaPlayerController?.dispose();
+      _mediaPlayerController = null;
       WebviewManager().removeWebView(_browserId);
       await _pluginChannel.invokeMethod('close', _browserId);
     }
@@ -260,6 +305,18 @@ class WebViewController extends ValueNotifier<bool> {
     }
     assert(value);
     return _pluginChannel.invokeMethod('executeJavaScript', [_browserId, code]);
+  }
+
+  /// Executes [code] in the frame identified by [frameId] (e.g. an iframe's
+  /// media element write-back). Silently no-ops when the frame no longer
+  /// exists (frameId invalidated by navigation).
+  Future<void> executeJavaScriptInFrame(String frameId, String code) async {
+    if (_isDisposed) {
+      return;
+    }
+    assert(value);
+    return _pluginChannel.invokeMethod(
+        'executeJavaScriptInFrame', [_browserId, frameId, code]);
   }
 
   Future<dynamic> evaluateJavascript(String code) async {
@@ -619,7 +676,14 @@ class WebViewState extends State<WebView>
         }
       },
       onKeyEvent: _onKeyEvent,
-      child: SizedBox.expand(key: _key, child: _buildInner()),
+      child: Stack(
+        children: [
+          SizedBox.expand(key: _key, child: _buildInner()),
+          // Media player takeover: full-screen / floating / mini-bar player
+          // layered above the web content (renders nothing while idle).
+          MediaPlayerOverlay(controller: _controller.mediaPlayerController),
+        ],
+      ),
     );
   }
 

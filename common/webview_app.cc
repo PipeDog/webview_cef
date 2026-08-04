@@ -4,6 +4,7 @@
 
 #include "webview_app.h"
 
+#include <iostream>
 #include <string>
 
 #include "include/cef_browser.h"
@@ -384,6 +385,12 @@ void WebviewApp::OnBrowserCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefDi
     if (!m_render_js_bridge.get()) {
         m_render_js_bridge.reset(new CefJSBridge);
     }
+    // Media player takeover: cache the JS injection script shipped through
+    // extra_info. Fired in every renderer process that hosts frames of this
+    // browser (including OOPIF processes), so all frames get the script.
+    if (extra_info && extra_info->HasKey("mediaPlayerInjectScript")) {
+        m_mediaPlayerInjectScript = extra_info->GetString("mediaPlayerInjectScript");
+    }
 }
 
 void WebviewApp::SetProcessMode(uint32_t uMode)
@@ -406,6 +413,32 @@ void WebviewApp::OnBrowserDestroyed(CefRefPtr<CefBrowser> browser)
 
 void WebviewApp::OnContextCreated(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context)
 {
+    // Media player takeover: evaluate the injection script in every frame's
+    // V8 context as early as possible — before any page script runs — so the
+    // HTMLMediaElement hijack always wins (see media_player_design.md §4.1).
+    // The script is idempotent (guarded by a window flag). The $cef V8
+    // extension is registered in OnWebKitInitialized and is available here.
+    if (m_mediaPlayerInjectScript.empty()) {
+        // Diagnostic: the script never reached the renderer (init/create
+        // pipeline) — the takeover is silently absent in this frame.
+        std::cerr << "[cef-media-player] injection skipped (no script cached),"
+                     " frame=" << frame->GetIdentifier().ToString()
+                  << std::endl;
+        return;
+    }
+    context->Enter();
+    CefRefPtr<CefV8Value> retval;
+    CefRefPtr<CefV8Exception> exception;
+    context->Eval(m_mediaPlayerInjectScript, CefString(), 0, retval, exception);
+    context->Exit();
+    if (exception) {
+        std::cerr << "[cef-media-player] injection failed, frame="
+                  << frame->GetIdentifier().ToString() << ": "
+                  << exception->GetMessage().ToString() << std::endl;
+    } else {
+        std::cerr << "[cef-media-player] injection ok, frame="
+                  << frame->GetIdentifier().ToString() << std::endl;
+    }
 }
 
 void WebviewApp::OnContextReleased(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame, CefRefPtr<CefV8Context> context)

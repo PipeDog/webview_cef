@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>媒体接管测试</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, 'Segoe UI', sans-serif; background: #16161d; color: #e0e0e0; padding: 20px; }
+    .container { max-width: 980px; margin: 0 auto; }
+    h1 { color: #e94560; font-size: 1.5rem; margin-bottom: 6px; }
+    h1 small { color: #707090; font-size: 0.8rem; font-weight: 400; }
+    .subtitle { color: #9090b0; font-size: 0.85rem; margin-bottom: 20px; }
+    .section { background: #1e1e2a; border: 1px solid #2a2a3c; border-radius: 10px; padding: 16px; margin-bottom: 18px; }
+    .section h2 { font-size: 1rem; color: #fca311; margin-bottom: 8px; }
+    .section p.desc { font-size: 0.78rem; color: #707090; margin-bottom: 10px; }
+    .row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+    button { background: #e94560; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
+    button.alt { background: #3a3a4e; }
+    button.green { background: #1a6b3c; }
+    button:disabled { opacity: 0.45; cursor: default; }
+    video { width: 100%; max-height: 300px; background: #000; display: block; margin-top: 8px; }
+    iframe { width: 100%; height: 260px; border: 1px solid #333; border-radius: 8px; background: #14213d; margin-top: 8px; }
+    .status { font-size: 0.8rem; color: #8ecae6; font-family: 'SF Mono', monospace; }
+    .status.err { color: #e94560; }
+    .status.ok { color: #66bb6a; }
+    .card { background: #16161d; border: 1px solid #2a2a3c; border-radius: 8px; padding: 10px; }
+    .btn-stop { background: #2a2a4a; color: #a0a0b0; }
+    .log-area { margin-top: 12px; background: #0d0d16; border-radius: 8px; padding: 12px; max-height: 220px; overflow-y: auto; font-family: 'SF Mono', 'Fira Code', monospace; font-size: 0.72rem; line-height: 1.6; white-space: pre-wrap; word-break: break-all; }
+    .log-line { border-bottom: 1px solid #1a1a28; padding: 2px 0; }
+    .log-line .tag { font-weight: 700; }
+    .log-line .tag.info { color: #4fc3f7; }
+    .log-line .tag.error { color: #e94560; }
+    .log-line .tag.ok { color: #66bb6a; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>媒体接管测试 <small>(media_player_design.md §8)</small></h1>
+    <p class="subtitle">验证 JS 注入的媒体接管：播放/暂停劫持、手势策略、iframe（同源 &amp; 跨源）、SPA 路由、元素移除、自定义控件与状态写回。</p>
+
+    <!-- 1. 基础接管 -->
+    <div class="section">
+      <h2>1. 基础接管（主 frame）</h2>
+      <p class="desc">点击播放 → 应弹出原生播放器。页面的 <code>paused</code> / <code>currentTime</code> 跟随播放器；自定义播放/暂停按钮必须保持同步。</p>
+      <div class="row">
+        <button onclick="basicPlay()">▶ 播放</button>
+        <button class="btn-stop" onclick="basicPause()">⏸ 暂停</button>
+        <button class="alt" onclick="basicRemove()">移除元素</button>
+        <span class="status" id="basic-state">已暂停</span>
+      </div>
+      <video id="basic-v" controls src="https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4"></video>
+    </div>
+
+    <!-- 2. iframe -->
+    <div class="section">
+      <h2>2. iframe（同源 + 跨源）</h2>
+      <p class="desc">同源 iframe（本地文件）与跨源 iframe（外部页面 / data: URL）。<code>$cef</code> 扩展必须能直接在其中使用；在 iframe 内播放必须弹出播放器并将状态写回该 frame（决策 18）。</p>
+      <div class="row">
+        <span class="status" id="same-iframe-check">同源 iframe: 加载中...</span>
+      </div>
+      <iframe id="same-iframe" src="media-iframe-content.html"></iframe>
+      <div class="row" style="margin-top:12px">
+        <span class="status" id="cross-iframe-check">跨源 iframe: 就绪 — data: URL（不透明源），无需网络</span>
+      </div>
+      <iframe id="cross-iframe"></iframe>
+    </div>
+
+    <!-- 3. SPA 路由 -->
+    <div class="section">
+      <h2>3. SPA 路由（决策 19/21）</h2>
+      <p class="desc">开始播放后 <code>history.pushState</code> 到"路由 B"——播放器必须保持不关闭（路由变化不是导航）。点击"卸载组件"将视频从 DOM 中移除——播放器必须关闭（元素移除监控）。</p>
+      <div class="row">
+        <button onclick="spaPlay()">▶ 在路由 A 播放</button>
+        <button class="alt" onclick="spaGoB()">→ pushState 到路由 B</button>
+        <button class="btn-stop" onclick="spaUnload()">卸载组件（移除）</button>
+        <span class="status" id="spa-status">空闲</span>
+      </div>
+      <div class="card" id="spa-route-a" style="display:none">
+        <video id="spa-v" controls src="https://nbk-test-cdn.xdf.cn/video/5882561725617007502.mp4"></video>
+      </div>
+      <div class="card" id="spa-route-b" style="display:none">
+        <p style="font-size:0.85rem;color:#9090b0">路由 B — 无媒体。路由 A 中的播放应在路由 B 显示时继续。</p>
+      </div>
+      <div class="status" id="spa-url"></div>
+    </div>
+
+    <!-- 4. 手势策略 -->
+    <div class="section">
+      <h2>4. 手势策略（决策 14/20）</h2>
+      <p class="desc">① 无用户激活的自动播放元素 → 被静默忽略（不弹出播放器，promise 以 NotAllowedError 拒绝）。② 点击后延迟 600ms 再调用 <code>play()</code> → <code>hasBeenActive</code> 具有粘性，播放器弹出。</p>
+      <div class="row">
+        <button class="green" onclick="delayedPlay()">点击 → 600ms 后 play()</button>
+        <span class="status" id="delay-state">未点击</span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span class="status" id="autoplay-state">自动播放元素: 检测中...（报告完成前请勿点击页面）</span>
+      </div>
+      <video id="autoplay-v" autoplay muted src="https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4" style="height:0;overflow:hidden"></video>
+    </div>
+
+    <!-- 5. display:none -->
+    <div class="section">
+      <h2>5. display:none（决策 21）</h2>
+      <p class="desc">播放过程中通过内联 <code>style.display='none'</code> 隐藏元素 → 播放器必须关闭。</p>
+      <div class="row">
+        <button onclick="hiddenPlay()">▶ 播放</button>
+        <button class="alt" onclick="hiddenHide()">隐藏（display:none）</button>
+        <span class="status" id="hidden-state">空闲</span>
+      </div>
+      <video id="hidden-v" controls src="https://nbk-test-cdn.xdf.cn/video/5882561725617007502.mp4"></video>
+    </div>
+
+    <!-- 6. 自定义控件 + 事件 -->
+    <div class="section">
+      <h2>6. 自定义控件与事件（状态写回）</h2>
+      <p class="desc">页面基于 <code>timeupdate</code> / <code>play</code> / <code>pause</code> / <code>ended</code> 事件以及 <code>paused</code> / <code>currentTime</code> / <code>duration</code> 属性渲染自己的控件。</p>
+      <div class="row">
+        <button id="custom-play">▶ 自定义播放</button>
+        <button id="custom-pause" class="btn-stop">⏸ 自定义暂停</button>
+        <span class="status" id="custom-state">已暂停</span>
+      </div>
+      <div class="row">
+        <span class="status" id="custom-pos">位置: --:-- / --:--</span>
+      </div>
+      <video id="custom-v" src="https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4"></video>
+    </div>
+
+    <!-- 日志 -->
+    <div class="log-area" id="log-area"></div>
+  </div>
+
+  <script>
+    var logArea = document.getElementById('log-area');
+    function log(tag, msg, cls) {
+      cls = cls || 'info';
+      var t = new Date().toLocaleTimeString();
+      logArea.innerHTML += '<div class="log-line"><span class="tag ' + cls + '">[' + tag + ']</span> ' + msg + '</div>';
+      logArea.scrollTop = logArea.scrollHeight;
+    }
+
+    // ── 1. 基础 ──────────────────────────────────────
+    var basicV = document.getElementById('basic-v');
+    var basicState = document.getElementById('basic-state');
+    basicV.addEventListener('play', function () { basicState.textContent = '播放中'; log('basic', 'play 事件'); });
+    basicV.addEventListener('pause', function () { basicState.textContent = '已暂停'; log('basic', 'pause 事件'); });
+    basicV.addEventListener('timeupdate', function () { basicState.textContent = '播放中 ' + basicV.currentTime.toFixed(1) + 's'; });
+    basicV.addEventListener('ended', function () { basicState.textContent = '已结束'; log('basic', 'ended 事件', 'ok'); });
+    basicV.addEventListener('error', function () { basicState.textContent = '出错'; log('basic', 'error 事件', 'error'); });
+    basicV.addEventListener('abort', function () { log('basic', 'abort 事件（等待 play() 时播放器被关闭）'); });
+    window.basicPlay = function () {
+      basicV.play().catch(function (e) { basicState.textContent = e.name; log('basic', 'play() 被拒绝: ' + e.name + ' — ' + e.message, 'error'); });
+    };
+    window.basicPause = function () { basicV.pause(); };
+    window.basicRemove = function () { basicV.parentElement.removeChild(basicV); };
+
+    // ── 2. iframe ────────────────────────────────────
+    // 跨源 iframe：data: URL（不透明源 —— 具有跨源语义且无需网络）。
+    // $cef 必须仍能直接在其中使用。
+    var crossHtml = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>跨源 iframe</title></head>' +
+      '<body style="background:#14213d;color:#e5e5e5;font-family:sans-serif;padding:10px">' +
+      '<h4 style="margin:0 0 8px;color:#fca311">跨源 iframe（data: URL）</h4>' +
+      '<div id="cef" style="font-size:0.8em;color:#8ecae6">$cef: 检测中...</div>' +
+      '<button id="p" style="margin:8px 0;background:#fca311;color:#14213d;border:none;border-radius:4px;padding:4px 12px;cursor:pointer">播放 MP4</button>' +
+      '<video id="v" controls src="https://nbk-test-cdn.xdf.cn/video/5882561725617007502.mp4" style="width:100%;background:#000"></video>' +
+      '<script>' +
+      'var c = document.getElementById("cef");' +
+      'try { c.textContent = "$cef: " + (typeof $cef) + (typeof $cef === "object" && $cef ? " — MediaPlayer: " + (typeof ($cef.MediaPlayer && $cef.MediaPlayer.postMessage) === "function" ? "可用" : "缺失") : "");' +
+      '} catch (e) { c.textContent = "$cef: 出错 " + e.message; }' +
+      'var v = document.getElementById("v");' +
+      'var s = document.createElement("span"); s.id = "st"; s.style.cssText = "color:#8ecae6;font-size:0.8em";' +
+      'document.body.insertBefore(s, v);' +
+      'v.addEventListener("play", function(){ s.textContent = " 播放中"; });' +
+      'v.addEventListener("pause", function(){ s.textContent = " 已暂停"; });' +
+      'v.addEventListener("timeupdate", function(){ s.textContent = " 播放中 " + v.currentTime.toFixed(1) + "s"; });' +
+      'v.addEventListener("ended", function(){ s.textContent = " 已结束"; });' +
+      'document.getElementById("p").onclick = function(){ v.play().catch(function(e){ s.textContent = " 被拦截: " + e.name; }); };' +
+      '<\/script></body></html>';
+    var crossFrame = document.getElementById('cross-iframe');
+    crossFrame.srcdoc = crossHtml;
+
+    var sameFrame = document.getElementById('same-iframe');
+    sameFrame.onload = function () {
+      try {
+        var hasCef = sameFrame.contentWindow && sameFrame.contentWindow.$cef;
+        document.getElementById('same-iframe-check').textContent =
+          '同源 iframe: $cef ' + (hasCef ? '可用' : '缺失');
+        document.getElementById('same-iframe-check').className = 'status ' + (hasCef ? 'ok' : 'err');
+      } catch (e) {
+        document.getElementById('same-iframe-check').textContent = '同源 iframe: 检测失败: ' + e.message;
+      }
+    };
+
+    // ── 3. SPA 路由 ────────────────────────────────
+    var spaV = document.getElementById('spa-v');
+    var spaStatus = document.getElementById('spa-status');
+    var routeA = document.getElementById('spa-route-a');
+    var routeB = document.getElementById('spa-route-b');
+    var spaUrl = document.getElementById('spa-url');
+    spaV.addEventListener('play', function () { spaStatus.textContent = '播放中'; });
+    spaV.addEventListener('pause', function () { spaStatus.textContent = '已暂停'; });
+    spaV.addEventListener('abort', function () { spaStatus.textContent = '已关闭（abort）'; log('spa', 'abort → 播放器关闭'); });
+
+    window.spaPlay = function () {
+      routeA.style.display = 'block';
+      routeB.style.display = 'none';
+      spaV.play().catch(function (e) { spaStatus.textContent = e.name; });
+    };
+    window.spaGoB = function () {
+      // SPA 路由切换：播放器必须保持不关闭（决策 19）。
+      routeA.style.display = 'none';
+      routeB.style.display = 'block';
+      history.pushState({ route: 'b' }, '', '#route-b');
+      spaUrl.textContent = 'location: ' + location.href;
+      log('spa', 'pushState → 路由 B（播放器应继续播放）');
+      setTimeout(function () {
+        log('spa', '路由 B 已显示; 播放器仍在 ' + (spaV.paused ? '暂停' : '播放') +
+          ' @ ' + spaV.currentTime.toFixed(1) + 's', 'info');
+      }, 800);
+    };
+    window.spaUnload = function () {
+      // 组件卸载：元素移除 → 播放器必须关闭（决策 21）。
+      spaV.parentElement.removeChild(spaV);
+      log('spa', '组件已卸载（video 已从 DOM 移除）');
+    };
+
+    // ── 4. 手势策略 ─────────────────────────────
+    var delayState = document.getElementById('delay-state');
+    var delayedVideo = document.createElement('video');
+    delayedVideo.src = 'https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4';
+    window.delayedPlay = function () {
+      delayState.textContent = '已点击 — 600ms 后调用 play()...';
+      setTimeout(function () {
+        delayedVideo.play().then(function () {
+          delayState.textContent = 'play() 挂起中（播放器已打开）';
+        }).catch(function (e) {
+          delayState.textContent = '被拒绝: ' + e.name;
+          log('gesture', '延迟 play() 被拒绝: ' + e.name + ' — ' + e.message, 'error');
+        });
+      }, 600);
+    };
+
+    // 自动播放元素（页面从未被激活）：被静默忽略。
+    var autoplayV = document.getElementById('autoplay-v');
+    var autoplayState = document.getElementById('autoplay-state');
+    autoplayV.play().then(function () {
+      autoplayState.textContent = '自动播放: promise 挂起中 — 不应弹出播放器';
+      autoplayState.className = 'status ok';
+    }).catch(function (e) {
+      autoplayState.textContent = '自动播放: 以 ' + e.name + ' 被拒绝（静默忽略，不弹播放器）';
+      autoplayState.className = 'status ok';
+      log('gesture', '自动播放被拒绝: ' + e.name + ' — ' + e.message, 'ok');
+    });
+    setTimeout(function () {
+      if (autoplayState.textContent.indexOf('检测中') !== -1) {
+        autoplayState.textContent = '自动播放: 尚未收到拒绝（页面未被激活？可先点击页面其他位置后重试）';
+      }
+    }, 1500);
+
+    // ── 5. display:none ───────────────────────────────
+    var hiddenV = document.getElementById('hidden-v');
+    var hiddenState = document.getElementById('hidden-state');
+    hiddenV.addEventListener('play', function () { hiddenState.textContent = '播放中'; });
+    hiddenV.addEventListener('abort', function () { hiddenState.textContent = '已关闭（abort）'; log('hidden', 'abort → 设置 display:none 后播放器关闭', 'ok'); });
+    window.hiddenPlay = function () { hiddenV.play().catch(function (e) { hiddenState.textContent = e.name; }); };
+    window.hiddenHide = function () { hiddenV.style.display = 'none'; log('hidden', '已设置 display:none'); };
+
+    // ── 6. 自定义控件 ────────────────────────────
+    var customV = document.getElementById('custom-v');
+    var customState = document.getElementById('custom-state');
+    var customPos = document.getElementById('custom-pos');
+    function fmt(s) {
+      s = Math.max(0, Math.floor(s));
+      var m = Math.floor(s / 60), r = s % 60;
+      return m + ':' + (r < 10 ? '0' : '') + r;
+    }
+    customV.addEventListener('play', function () { customState.textContent = '播放中'; log('custom', 'play 事件'); });
+    customV.addEventListener('pause', function () { customState.textContent = '已暂停'; log('custom', 'pause 事件'); });
+    customV.addEventListener('timeupdate', function () {
+      customPos.textContent = '位置: ' + fmt(customV.currentTime) + ' / ' + (isFinite(customV.duration) ? fmt(customV.duration) : '--:--');
+    });
+    customV.addEventListener('ended', function () { customState.textContent = '已结束'; log('custom', 'ended 事件', 'ok'); });
+    customV.addEventListener('error', function () { customState.textContent = '出错'; log('custom', 'error 事件', 'error'); });
+    document.getElementById('custom-play').onclick = function () {
+      customV.play().catch(function (e) { customState.textContent = '被拒绝: ' + e.name; log('custom', 'play() 被拒绝: ' + e.name, 'error'); });
+    };
+    document.getElementById('custom-pause').onclick = function () { customV.pause(); };
+
+    log('Init', '媒体接管测试页已加载');
+  </script>
+</body>
+</html>

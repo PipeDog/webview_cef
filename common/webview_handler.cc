@@ -249,7 +249,7 @@ void WebviewHandler::OnRenderProcessTerminated(CefRefPtr<CefBrowser> browser,
 void WebviewHandler::OnLoadStart(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
                                  CefLoadHandler::TransitionType transition_type) {
     if(onLoadStart){
-        onLoadStart(browser->GetIdentifier(), frame->GetURL());
+        onLoadStart(browser->GetIdentifier(), frame->GetURL(), frame->IsMain());
     }
     return;
 }
@@ -257,7 +257,7 @@ void WebviewHandler::OnLoadStart(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFra
 void WebviewHandler::OnLoadEnd(CefRefPtr<CefBrowser> browser, CefRefPtr<CefFrame> frame,
                                int httpStatusCode) {
     if(onLoadEnd){
-        onLoadEnd(browser->GetIdentifier(), frame->GetURL());
+        onLoadEnd(browser->GetIdentifier(), frame->GetURL(), frame->IsMain());
     }
     return;
 }
@@ -331,9 +331,17 @@ void WebviewHandler::createBrowser(std::string url, std::function<void(int)> cal
     // an IDXGIOutput vblank wait, macOS from a CVDisplayLink.
     window_info.external_begin_frame_enabled = true;
 #endif
+    // Media player takeover: ship the JS injection script to the renderer
+    // process(es) via extra_info. OnBrowserCreated (renderer side) caches it
+    // and OnContextCreated evaluates it in every frame's V8 context.
+    CefRefPtr<CefDictionaryValue> extra_info;
+    if (!media_player_inject_script_.empty()) {
+        extra_info = CefDictionaryValue::Create();
+        extra_info->SetString("mediaPlayerInjectScript", media_player_inject_script_);
+    }
     CefRefPtr<CefBrowser> browser =
         CefBrowserHost::CreateBrowserSync(window_info, this, url,
-                                          browser_settings, nullptr, nullptr);
+                                          browser_settings, extra_info, nullptr);
     if (!browser) {
         std::cerr << "[webview_cef] ERROR: CreateBrowserSync failed for URL: "
                   << url << std::endl;
@@ -882,6 +890,30 @@ void WebviewHandler::executeJavaScript(int browserId, const std::string code, st
             }
         }
     }
+}
+
+void WebviewHandler::setMediaPlayerInjectScript(const std::string& script)
+{
+    media_player_inject_script_ = script;
+}
+
+void WebviewHandler::executeJavaScriptInFrame(int browserId, const std::string& frameId, const std::string code)
+{
+    if (code.empty() || frameId.empty()) {
+        return;
+    }
+    auto bit = browser_map_.find(browserId);
+    if (bit == browser_map_.end() || !bit->second.browser.get()) {
+        return;
+    }
+    // CEF 122+ frame identifiers are strings; look the frame up by
+    // identifier (covers iframes, including cross-origin/OOPIF ones).
+    CefRefPtr<CefFrame> frame = bit->second.browser->GetFrameByIdentifier(frameId);
+    if (frame) {
+        frame->ExecuteJavaScript(code, frame->GetURL(), 0);
+    }
+    // Frame not found → frameId was invalidated by navigation (or the iframe
+    // was removed). Silently drop per media_player_design.md §4.2.
 }
 
 void WebviewHandler::GetViewRect(CefRefPtr<CefBrowser> browser, CefRect &rect) {

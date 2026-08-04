@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>iframe 媒体内容页</title>
+  <style>
+    body { font-family: sans-serif; background: #14213d; color: #e5e5e5; padding: 12px; margin: 0; }
+    h4 { margin: 0 0 8px; color: #fca311; }
+    .row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+    button { background: #fca311; color: #14213d; border: none; border-radius: 4px; padding: 4px 12px; cursor: pointer; }
+    video { width: 100%; background: #000; }
+    code { background: rgba(255,255,255,0.12); padding: 1px 5px; border-radius: 3px; font-size: 0.85em; }
+    #cef-check { font-size: 0.8em; color: #8ecae6; }
+  </style>
+</head>
+<body>
+  <h4>iframe 媒体内容</h4>
+  <div class="row">
+    <button id="btn-play">播放 MP4</button>
+    <button id="btn-pause">暂停</button>
+    <span id="state">已暂停</span>
+  </div>
+  <div id="cef-check">$cef: 检测中...</div>
+  <video id="v" controls src="https://nbk-test-cdn.xdf.cn/video/4857781782712385070-sd.mp4"></video>
+  <script>
+    // 检测 $cef V8 扩展是否在当前 frame 中可直接使用
+    // （决策 18：扩展会注入到每个 frame 的上下文，包括跨源 iframe —— 无需 postMessage 兜底）。
+    var cefEl = document.getElementById('cef-check');
+    try {
+      cefEl.textContent = '$cef: ' + (typeof $cef) +
+        (typeof $cef === 'object' && $cef ? ' — MediaPlayer 通道: ' +
+          (typeof ($cef.MediaPlayer && $cef.MediaPlayer.postMessage) === 'function' ? '可用' : '缺失') : '');
+    } catch (e) {
+      cefEl.textContent = '$cef: 出错 — ' + e.message;
+    }
+
+    var v = document.getElementById('v');
+    var stateEl = document.getElementById('state');
+    var btnPlay = document.getElementById('btn-play');
+    var btnPause = document.getElementById('btn-pause');
+
+    // 自定义控件：依赖状态写回 + 事件。
+    v.addEventListener('play', function () { stateEl.textContent = '播放中'; });
+    v.addEventListener('pause', function () { stateEl.textContent = '已暂停'; });
+    v.addEventListener('timeupdate', function () {
+      stateEl.textContent = '播放中 ' + v.currentTime.toFixed(1) + 's';
+    });
+    v.addEventListener('ended', function () { stateEl.textContent = '已结束'; });
+
+    btnPlay.onclick = function () { v.play().catch(function (e) { stateEl.textContent = '被拦截: ' + e.name; }); };
+    btnPause.onclick = function () { v.pause(); };
+  </script>
+</body>
+</html>

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 
 <head>
   <meta charset="UTF-8">
-  <title>JSBridge Test</title>
+  <title>JSBridge 测试</title>
   <style>
     * {
       margin: 0;
@@ -102,6 +102,11 @@
       color: #fff;
     }
 
+    .btn-iframe {
+      background: #1a7f8e;
+      color: #fff;
+    }
+
     .section {
       margin-top: 20px;
     }
@@ -145,51 +150,65 @@
 
 <body>
   <div class="card">
-    <h1>&#x26A1; JSBridge Sanity Check</h1>
-    <p class="subtitle">CEF WebView — console &middot; channel &middot; eval</p>
+    <h1>&#x26A1; JSBridge 功能检查</h1>
+    <p class="subtitle">CEF WebView — 控制台 · 通道 · 求值</p>
 
     <div class="btn-group">
       <button class="btn-console" onclick="testConsole()">
         &#x1F4AC; 1. console.log
       </button>
       <button class="btn-channel" onclick="testChannel()">
-        &#x1F4E8; 2. Print Channel
+        &#x1F4E8; 2. Print 通道
       </button>
       <button class="btn-eval" onclick="testEval()">
         &#x26A1; 3. evaluateJavascript
       </button>
       <button class="btn-clear" onclick="clearLog()">
-        &#x1F5D1; Clear Log
+        &#x1F5D1; 清空日志
       </button>
       <button class="btn-media" onclick="location.href='media-test.html'">
-        &#x1F3AC; Media Playback Test
+        &#x1F3AC; 媒体播放测试
       </button>
       <button class="btn-html5test" onclick="location.href='https://html5test.com/'">
-        &#x1F310; HTML5 Test
+        &#x1F310; HTML5 测试
       </button>
       <button class="btn-xdf" onclick="location.href='https://ckai-teacher-web-test1.test.xdf.cn/in-class?contentId=blank&amp;contentType=BLANK&amp;role=teacher-lecture&amp;roomId=bc45ecd9b70446bf8b4782491c7c98d0&amp;wbRoomId=bc45ecd9b70446bf8b4782491c7c98d0@blank'">
-        &#x1F3EB; XDF In-Class Test
+        &#x1F3EB; 新东方 课堂测试
+      </button>
+      <button class="btn-iframe" onclick="toggleIframe()">
+        &#x1F5BC; iframe 测试
       </button>
     </div>
 
     <div class="section">
-      <p class="section-label">Keyboard Shortcut Test</p>
-      <textarea id="shortcut-test" placeholder="Type here and test Cmd+Arrows, Cmd+Z, Cmd+Backspace..." style="width:100%;height:120px;background:#0d0d1a;color:#e0e0e0;
+      <p class="section-label">键盘快捷键测试</p>
+      <textarea id="shortcut-test" placeholder="在此输入并测试 Cmd+方向键、Cmd+Z、Cmd+Backspace..." style="width:100%;height:120px;background:#0d0d1a;color:#e0e0e0;
           border:1px solid #2a2a4a;border-radius:8px;padding:10px;
           font-family:'SF Mono','Fira Code',monospace;font-size:0.85rem;
           resize:vertical;"></textarea>
     </div>
 
     <div class="section">
-      <p class="section-label">File Picker Test</p>
+      <p class="section-label">文件选择测试</p>
       <div class="file-row">
         <input type="file" id="file-input" style="display:none" onchange="onFileSelected(this.files)" />
         <button class="btn-file" onclick="document.getElementById('file-input').click()">
-          &#x1F4C2; Choose File
+          &#x1F4C2; 选择文件
         </button>
-        <span id="file-name">No file chosen</span>
+        <span id="file-name">未选择文件</span>
       </div>
       <div id="file-info"></div>
+    </div>
+
+    <div class="section" id="iframe-section" style="display:none">
+      <p class="section-label">iframe JSBridge 测试（iframe-test.html）</p>
+      <div class="file-row">
+        <input type="text" id="iframe-msg" value="来自父页面的问候"
+          style="flex:1;background:#0d0d1a;color:#e0e0e0;border:1px solid #2a2a4a;border-radius:8px;padding:8px 10px;font-size:0.85rem;" />
+        <button class="btn-file" onclick="sendToIframe()">发送 &#8595;</button>
+      </div>
+      <iframe id="iframe-test" src="iframe-test.html"
+        style="width:100%;height:420px;border:1px solid #2a2a4a;border-radius:8px;margin-top:8px;background:#0d0d1a;"></iframe>
     </div>
 
     <div id="log-area"></div>
@@ -206,41 +225,41 @@
 
     function clearLog() {
       logArea.innerHTML = '';
-      appendLog('UI', 'Log cleared');
+      appendLog('UI', '日志已清空');
     }
 
     // ── 1. console.log ──────────────────────────────
     function testConsole() {
       console.log('hello_from_console_log');
-      appendLog('Console', '<code>console.log("hello_from_console_log")</code> sent');
+      appendLog('Console', '<code>console.log("hello_from_console_log")</code> 已发送');
     }
 
     // ── 2. Print JavaScriptChannel ──────────────────
     function testChannel() {
       if (typeof $cef !== 'undefined' && typeof $cef.Print !== 'undefined') {
         $cef.Print.postMessage(JSON.stringify({ msg: 'hello_from_print_channel' }));
-        appendLog('Channel', '<code>$cef.Print.postMessage(...)</code> sent');
+        appendLog('Channel', '<code>$cef.Print.postMessage(...)</code> 已发送');
       } else {
-        appendLog('Channel', '<span style="color:#e94560">$cef.Print channel NOT registered</span>');
+        appendLog('Channel', '<span style="color:#e94560">$cef.Print 通道未注册</span>');
       }
     }
 
-    // ── 3. evaluateJavascript (abc function) ────────
+    // ── 3. evaluateJavascript（abc 函数） ────────
     function testEval() {
       if (typeof abc === 'function') {
         var result = abc('bridge_test');
         appendLog('Eval', '<code>abc("bridge_test")</code> → <b>' + result + '</b>');
       } else {
-        appendLog('Eval', '<span style="color:#e94560">abc() NOT defined</span>');
+        appendLog('Eval', '<span style="color:#e94560">abc() 未定义</span>');
       }
     }
 
-    // ── 4. File Picker ──────────────────────────────
+    // ── 4. 文件选择 ──────────────────────────────
     function onFileSelected(files) {
       var el = document.getElementById('file-name');
       var info = document.getElementById('file-info');
       if (!files || files.length === 0) {
-        el.textContent = 'No file chosen';
+        el.textContent = '未选择文件';
         info.textContent = '';
         return;
       }
@@ -249,24 +268,49 @@
         : f.size < 1048576 ? (f.size / 1024).toFixed(1) + ' KB'
         : (f.size / 1048576).toFixed(2) + ' MB';
       el.textContent = f.name;
-      info.textContent = 'Type: ' + (f.type || 'unknown') + '  |  Size: ' + size;
-      appendLog('File', '<b>' + f.name + '</b> — ' + size + ' (' + (f.type || 'unknown') + ')');
+      info.textContent = '类型: ' + (f.type || '未知') + '  |  大小: ' + size;
+      appendLog('File', '<b>' + f.name + '</b> — ' + size + ' (' + (f.type || '未知') + ')');
 
-      // Read the file content as text (up to 4 KB) and display a preview.
+      // 以文本形式读取文件内容（最多 4 KB）并显示预览。
       if (f.size <= 4096) {
         var reader = new FileReader();
         reader.onload = function(e) {
-          appendLog('File', 'Content preview: <pre style="margin:4px 0 0 0;font-size:0.72rem;opacity:0.8">'
+          appendLog('File', '内容预览: <pre style="margin:4px 0 0 0;font-size:0.72rem;opacity:0.8">'
             + e.target.result + '</pre>');
         };
         reader.readAsText(f);
       } else {
-        appendLog('File', 'File too large for preview (>4 KB)');
+        appendLog('File', '文件过大，无法预览（>4 KB）');
       }
     }
 
-    // Boot log
-    appendLog('Init', 'bridge.html loaded');
+    // ── 5. iframe JSBridge 测试 ──────────────────────
+    function toggleIframe() {
+      var sec = document.getElementById('iframe-section');
+      var show = sec.style.display === 'none';
+      sec.style.display = show ? 'block' : 'none';
+      appendLog('Iframe', show ? '已在下方嵌入 iframe-test.html' : 'iframe 区域已隐藏');
+    }
+
+    function sendToIframe() {
+      var input = document.getElementById('iframe-msg');
+      var text = input.value || '来自父页面的问候';
+      var frame = document.getElementById('iframe-test');
+      frame.contentWindow.postMessage({ __src: 'bridge', msg: text }, '*');
+      appendLog('Iframe', '&#8594; 已发送到 iframe: <code>' + text + '</code>');
+    }
+
+    // 接收 iframe-test.html 上报的消息。iframe 会运行自己的
+    // bridge 测试（console / $cef.Print / abc）并把结果上报到这里。
+    window.addEventListener('message', function (e) {
+      var d = e.data;
+      if (d && d.__src === 'iframe-test') {
+        appendLog('Iframe' + (d.tag ? '.' + d.tag : ''), d.msg);
+      }
+    });
+
+    // 启动日志
+    appendLog('Init', 'bridge.html 已加载');
     console.log('bridge.html ready');
   </script>
 </body>
