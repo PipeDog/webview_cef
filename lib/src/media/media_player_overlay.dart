@@ -17,6 +17,12 @@ import 'package:flutter/material.dart';
 import 'media_player_controller.dart';
 import 'media_player_types.dart';
 
+/// Target-value jump (ms) treated as a snap: replay (100% → 0%), the end snap
+/// (last poll → duration) or a far seek must not animate the bar across the
+/// track. The 250ms poll advances at most ~500ms per tick at 2x speed, so
+/// anything beyond 1s is a real jump.
+const double _kSnapJumpMs = 1000;
+
 /// Overlay widget; place inside the WebView's Stack. Renders nothing while
 /// the player is idle.
 class MediaPlayerOverlay extends StatelessWidget {
@@ -34,9 +40,12 @@ class MediaPlayerOverlay extends StatelessWidget {
         }
         return Positioned.fill(
           child: switch (controller.displayMode) {
-            MediaPlayerDisplayMode.fullScreen => _FullScreenPlayer(controller: controller),
-            MediaPlayerDisplayMode.floating => _FloatingPlayer(controller: controller),
-            MediaPlayerDisplayMode.miniBar => _AudioMiniBar(controller: controller),
+            MediaPlayerDisplayMode.fullScreen =>
+              _FullScreenPlayer(controller: controller),
+            MediaPlayerDisplayMode.floating =>
+              _FloatingPlayer(controller: controller),
+            MediaPlayerDisplayMode.miniBar =>
+              _AudioMiniBar(controller: controller),
           },
         );
       },
@@ -51,19 +60,42 @@ class _DraggableBox extends StatefulWidget {
     required this.controller,
     required this.size,
     required this.child,
+    this.snapSignal = 0,
   });
 
   final MediaPlayerController controller;
   final Size size;
   final Widget child;
 
+  /// Bumped by the owner (e.g. after a floating-window resize) to request a
+  /// re-snap to the right edge on the next layout.
+  final int snapSignal;
+
   @override
   State<_DraggableBox> createState() => _DraggableBoxState();
 }
 
 class _DraggableBoxState extends State<_DraggableBox> {
-  // Default position: bottom-right corner.
-  Offset _pos = Offset(40, 80);
+  /// Current position; null until the first layout places the box in the
+  /// bottom-right corner of the stage.
+  Offset? _pos;
+
+  /// Set by didUpdateWidget when the owner bumps [snapSignal] (a resize):
+  /// the next layout re-snaps the box to the horizontal edge it is closer
+  /// to.
+  bool _pendingSnap = false;
+
+  /// True while the user is dragging: the box tracks the pointer without
+  /// animation, then snaps to the nearest horizontal edge on release.
+  bool _dragging = false;
+
+  @override
+  void didUpdateWidget(_DraggableBox oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.snapSignal != oldWidget.snapSignal) {
+      _pendingSnap = true;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -71,31 +103,62 @@ class _DraggableBoxState extends State<_DraggableBox> {
       builder: (context, constraints) {
         final maxDx = constraints.maxWidth - widget.size.width;
         final maxDy = constraints.maxHeight - widget.size.height;
-        // Keep a 10px margin from the parent edges on all four sides; when
-        // the parent is too small to honor it, visibility wins.
+        // Keep a uniform 10px margin from the stage edges on all four
+        // sides; when the parent is too small to honor it, visibility wins.
         const double edgeMargin = 10;
         final minX = edgeMargin;
         final maxX = maxDx - edgeMargin;
         final minY = edgeMargin;
         final maxY = maxDy - edgeMargin;
-        _pos = Offset(
-          _pos.dx.clamp(minX, maxX < minX ? minX : maxX),
-          _pos.dy.clamp(minY, maxY < minY ? minY : maxY),
-        );
-        // Positioned must be a direct child of a Stack (a LayoutBuilder
-        // accepts BoxParentData and would reject it). The Stack spans the
-        // full webview area as the stage; the box floats on top of it.
+        final rightX = maxX < minX ? minX : maxX;
+        final bottomY = maxY < minY ? minY : maxY;
+        final raw = _pos ?? Offset(rightX, bottomY);
+        // A resize re-snaps the box to the horizontal edge it is currently
+        // closer to; otherwise clamp the drag position to the margins.
+        _pos = _pendingSnap
+            ? Offset(
+                raw.dx - minX <= rightX - raw.dx ? minX : rightX,
+                raw.dy.clamp(minY, bottomY),
+              )
+            : Offset(
+                raw.dx.clamp(minX, rightX),
+                raw.dy.clamp(minY, bottomY),
+              );
+        _pendingSnap = false;
+        // AnimatedPositioned must be a direct child of a Stack (a
+        // LayoutBuilder accepts BoxParentData and would reject it). The
+        // Stack spans the full webview area as the stage; the box floats on
+        // top of it.
         return Stack(
           children: [
-            Positioned(
-              left: _pos.dx,
-              top: _pos.dy,
+            AnimatedPositioned(
+              left: _pos!.dx,
+              top: _pos!.dy,
               width: widget.size.width,
               height: widget.size.height,
+              // Track the pointer while dragging; animate the horizontal
+              // snap to the nearest edge on release.
+              duration: _dragging
+                  ? Duration.zero
+                  : const Duration(milliseconds: 200),
+              curve: Curves.easeOutCubic,
               child: GestureDetector(
+                onPanStart: (_) => setState(() => _dragging = true),
                 onPanUpdate: (details) {
                   setState(() {
-                    _pos += details.delta;
+                    _pos = _pos! + details.delta;
+                  });
+                },
+                onPanEnd: (_) {
+                  // Snap horizontally to the nearest edge on release; the
+                  // vertical position stays where it was dropped.
+                  setState(() {
+                    _dragging = false;
+                    final pos = _pos!;
+                    _pos = Offset(
+                      pos.dx - minX <= rightX - pos.dx ? minX : rightX,
+                      pos.dy,
+                    );
                   });
                 },
                 child: widget.child,
@@ -128,6 +191,11 @@ class _FullScreenPlayerState extends State<_FullScreenPlayer> {
   /// unchanged.
   bool _controlsVisible = true;
 
+  /// Last slider target (ms) rendered; null before the first build. Used to
+  /// snap the bar instantly on large jumps instead of animating across the
+  /// track (see _kSnapJumpMs).
+  double? _lastSliderTargetMs;
+
   static const List<double> _speeds = [0.5, 1.0, 1.5, 2.0];
 
   MediaPlayerController get controller => widget.controller;
@@ -148,9 +216,19 @@ class _FullScreenPlayerState extends State<_FullScreenPlayer> {
             alignment: Alignment.topCenter,
             child: _AnimatedBar(
               visible: _controlsVisible,
-              child: SizedBox(
-                width: double.infinity,
-                child: _buildTopBar(context),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildTopBar(context),
+                  ),
+                  // Soft shadow below the bar, fading the video into it.
+                  const _EdgeFade(
+                    height: 32,
+                    barColor: Color(0xC8000000),
+                  ),
+                ],
               ),
             ),
           ),
@@ -158,9 +236,20 @@ class _FullScreenPlayerState extends State<_FullScreenPlayer> {
             alignment: Alignment.bottomCenter,
             child: _AnimatedBar(
               visible: _controlsVisible,
-              child: SizedBox(
-                width: double.infinity,
-                child: _buildControlBar(context),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Soft shadow above the bar, fading the video into it.
+                  const _EdgeFade(
+                    height: 32,
+                    barColor: Color(0xC8000000),
+                    barAtTop: false,
+                  ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildControlBar(context),
+                  ),
+                ],
               ),
             ),
           ),
@@ -188,10 +277,10 @@ class _FullScreenPlayerState extends State<_FullScreenPlayer> {
           if (controller.mediaType == MediaMediaType.video)
             IconButton(
               tooltip: 'Floating window',
-              icon: const Icon(Icons.picture_in_picture_alt,
-                  color: Colors.white),
-              onPressed: () => controller
-                  .setDisplayMode(MediaPlayerDisplayMode.floating),
+              icon:
+                  const Icon(Icons.picture_in_picture_alt, color: Colors.white),
+              onPressed: () =>
+                  controller.setDisplayMode(MediaPlayerDisplayMode.floating),
             ),
           IconButton(
             tooltip: 'Close',
@@ -203,8 +292,8 @@ class _FullScreenPlayerState extends State<_FullScreenPlayer> {
     );
   }
 
-  Widget _buildSurface(BuildContext context, MediaPlaybackPhase phase,
-      bool isAudio) {
+  Widget _buildSurface(
+      BuildContext context, MediaPlaybackPhase phase, bool isAudio) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // Tap the video surface to show/hide the controls.
@@ -238,14 +327,20 @@ class _FullScreenPlayerState extends State<_FullScreenPlayer> {
     final phase = controller.phase;
     final durationMs = controller.duration.inMilliseconds;
     final maxMs = durationMs > 0 ? durationMs.toDouble() : 1.0;
-    final value = (_dragValue ??
-            controller.position.inMilliseconds.toDouble())
+    final value = (_dragValue ?? controller.position.inMilliseconds.toDouble())
         .clamp(0.0, maxMs)
         .toDouble();
+    // Snap instantly on large jumps (replay / end snap / far seek) instead
+    // of animating the bar across the track; keep the 250ms smoothing for
+    // ordinary poll ticks.
+    final snap = _dragValue != null ||
+        (_lastSliderTargetMs != null &&
+            (value - _lastSliderTargetMs!).abs() > _kSnapJumpMs);
+    _lastSliderTargetMs = value;
     final hasDuration = durationMs > 0;
     final current = Duration(
-        milliseconds: (_dragValue ?? controller.position.inMilliseconds)
-            .round());
+        milliseconds:
+            (_dragValue ?? controller.position.inMilliseconds).round());
     final seekEnabled = hasDuration &&
         (phase == MediaPlaybackPhase.playing ||
             phase == MediaPlaybackPhase.paused);
@@ -276,7 +371,7 @@ class _FullScreenPlayerState extends State<_FullScreenPlayer> {
                   // thumb tracks the pointer precisely.
                   child: TweenAnimationBuilder<double>(
                     tween: Tween<double>(end: value),
-                    duration: _dragValue != null
+                    duration: snap
                         ? Duration.zero
                         : const Duration(milliseconds: 250),
                     builder: (context, animated, _) => Slider(
@@ -290,8 +385,8 @@ class _FullScreenPlayerState extends State<_FullScreenPlayer> {
                           : null,
                       onChangeEnd: seekEnabled
                           ? (v) {
-                              controller.seek(
-                                  Duration(milliseconds: v.round()));
+                              controller
+                                  .seek(Duration(milliseconds: v.round()));
                               setState(() => _dragValue = null);
                             }
                           : null,
@@ -374,6 +469,19 @@ class _FloatingPlayerState extends State<_FloatingPlayer> {
   ];
   int _presetIndex = 0;
 
+  /// Bumped on every resize (button or title-area double-tap); the
+  /// draggable box re-snaps to the right edge when it changes.
+  int _resizeTick = 0;
+
+  /// Cycles to the next size preset and asks the draggable box to re-snap
+  /// to the right edge.
+  void _resize() {
+    setState(() {
+      _presetIndex = (_presetIndex + 1) % _presets.length;
+      _resizeTick++;
+    });
+  }
+
   /// Whether the header / bottom controls are shown; toggled by tapping the
   /// video surface. Hiding keeps the layout space so the video size is
   /// unchanged.
@@ -387,6 +495,7 @@ class _FloatingPlayerState extends State<_FloatingPlayer> {
     return _DraggableBox(
       controller: controller,
       size: size,
+      snapSignal: _resizeTick,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.black,
@@ -406,8 +515,7 @@ class _FloatingPlayerState extends State<_FloatingPlayer> {
             // Video surface; tap the video area to show/hide the controls.
             GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: () =>
-                  setState(() => _controlsVisible = !_controlsVisible),
+              onTap: () => setState(() => _controlsVisible = !_controlsVisible),
               child: Stack(
                 fit: StackFit.expand,
                 children: [
@@ -423,49 +531,72 @@ class _FloatingPlayerState extends State<_FloatingPlayer> {
               ),
             ),
             // Header overlay: title, back to full-screen, resize, close.
+            // Double-tap the title area to cycle the window size, same as
+            // the Resize button — kept off the buttons so their taps never
+            // compete with the double-tap recognizer in the gesture arena.
             Align(
               alignment: Alignment.topCenter,
               child: _AnimatedBar(
                 visible: _controlsVisible,
-                child: SizedBox(
-                  width: double.infinity,
-                  child: Container(
-                    height: 32,
-                    padding: const EdgeInsets.only(left: 8),
-                    color: Colors.black.withAlpha(220),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            controller.title.isEmpty ? 'Media Player' : controller.title,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(color: Colors.white, fontSize: 12),
-                          ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SizedBox(
+                      width: double.infinity,
+                      child: Container(
+                        height: 32,
+                        padding: const EdgeInsets.only(left: 8),
+                        color: Colors.black.withAlpha(220),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              // Text does not hit-test, so the opaque
+                              // behavior keeps the whole title area
+                              // interactive (double-tap to resize) instead
+                              // of passing events through to the video.
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onDoubleTap: _resize,
+                                child: Text(
+                                  controller.title.isEmpty
+                                      ? 'Media Player'
+                                      : controller.title,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                      color: Colors.white, fontSize: 12),
+                                ),
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Full screen',
+                              iconSize: 18,
+                              icon: const Icon(Icons.fullscreen,
+                                  color: Colors.white),
+                              onPressed: () => controller.setDisplayMode(
+                                  MediaPlayerDisplayMode.fullScreen),
+                            ),
+                            IconButton(
+                              tooltip: 'Resize',
+                              iconSize: 18,
+                              icon: const Icon(Icons.aspect_ratio,
+                                  color: Colors.white),
+                              onPressed: _resize,
+                            ),
+                            IconButton(
+                              tooltip: 'Close',
+                              iconSize: 18,
+                              icon: const Icon(Icons.close,
+                                  color: Colors.white),
+                              onPressed: controller.close,
+                            ),
+                          ],
                         ),
-                        IconButton(
-                          tooltip: 'Full screen',
-                          iconSize: 18,
-                          icon: const Icon(Icons.fullscreen, color: Colors.white),
-                          onPressed: () => controller
-                              .setDisplayMode(MediaPlayerDisplayMode.fullScreen),
-                        ),
-                        IconButton(
-                          tooltip: 'Resize',
-                          iconSize: 18,
-                          icon: const Icon(Icons.aspect_ratio, color: Colors.white),
-                          onPressed: () =>
-                              setState(() => _presetIndex = (_presetIndex + 1) % _presets.length),
-                        ),
-                        IconButton(
-                          tooltip: 'Close',
-                          iconSize: 18,
-                          icon: const Icon(Icons.close, color: Colors.white),
-                          onPressed: controller.close,
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                    // Soft shadow below the header, fading the video into it.
+                    const _EdgeFade(height: 16, barColor: Color(0xDC000000)),
+                  ],
                 ),
               ),
             ),
@@ -476,40 +607,52 @@ class _FloatingPlayerState extends State<_FloatingPlayer> {
               alignment: Alignment.bottomCenter,
               child: _AnimatedBar(
                 visible: _controlsVisible,
-                child: Container(
-                  width: double.infinity,
-                  color: Colors.black.withAlpha(160),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  child: Row(
-                    children: [
-                      IconButton(
-                        iconSize: 18,
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(
-                            minWidth: 28, minHeight: 28),
-                        icon: Icon(
-                          controller.phase == MediaPlaybackPhase.playing
-                              ? Icons.pause
-                              : Icons.play_arrow,
-                          color: Colors.white,
-                        ),
-                        onPressed: (controller.phase ==
-                                    MediaPlaybackPhase.playing ||
-                                controller.phase ==
-                                    MediaPlaybackPhase.paused ||
-                                controller.phase ==
-                                    MediaPlaybackPhase.ended ||
-                                controller.phase ==
-                                    MediaPlaybackPhase.error)
-                            ? controller.togglePlayPause
-                            : null,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Soft shadow above the strip, fading the video into it.
+                    const _EdgeFade(
+                      height: 16,
+                      barColor: Color(0xA0000000),
+                      barAtTop: false,
+                    ),
+                    Container(
+                      width: double.infinity,
+                      color: Colors.black.withAlpha(160),
+                      // Extra right padding so the progress bar does not
+                      // hug the floating window's right edge.
+                      padding: const EdgeInsets.fromLTRB(4, 2, 12, 2),
+                      child: Row(
+                        children: [
+                          IconButton(
+                            iconSize: 18,
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(
+                                minWidth: 28, minHeight: 28),
+                            icon: Icon(
+                              controller.phase == MediaPlaybackPhase.playing
+                                  ? Icons.pause
+                                  : Icons.play_arrow,
+                              color: Colors.white,
+                            ),
+                            onPressed: (controller.phase ==
+                                        MediaPlaybackPhase.playing ||
+                                    controller.phase ==
+                                        MediaPlaybackPhase.paused ||
+                                    controller.phase ==
+                                        MediaPlaybackPhase.ended ||
+                                    controller.phase ==
+                                        MediaPlaybackPhase.error)
+                                ? controller.togglePlayPause
+                                : null,
+                          ),
+                          Expanded(
+                            child: _FloatingProgress(controller: controller),
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: _FloatingProgress(controller: controller),
-                      ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -573,7 +716,8 @@ class _AudioMiniBarState extends State<_AudioMiniBar> {
                     children: [
                       Text(
                         _fmt(controller.position),
-                        style: const TextStyle(color: Colors.white54, fontSize: 10),
+                        style: const TextStyle(
+                            color: Colors.white54, fontSize: 10),
                       ),
                       // Slider's default minimum height (48) would overflow
                       // the 56px bar together with the title row — cap it at
@@ -588,7 +732,8 @@ class _AudioMiniBarState extends State<_AudioMiniBar> {
                         controller.duration.inMilliseconds > 0
                             ? _fmt(controller.duration)
                             : '--:--',
-                        style: const TextStyle(color: Colors.white54, fontSize: 10),
+                        style: const TextStyle(
+                            color: Colors.white54, fontSize: 10),
                       ),
                     ],
                   ),
@@ -598,8 +743,7 @@ class _AudioMiniBarState extends State<_AudioMiniBar> {
             IconButton(
               iconSize: 26,
               padding: EdgeInsets.zero,
-              constraints:
-                  const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               icon: Icon(
                 controller.phase == MediaPlaybackPhase.playing
                     ? Icons.pause_circle_filled
@@ -613,13 +757,13 @@ class _AudioMiniBarState extends State<_AudioMiniBar> {
                   ? controller.togglePlayPause
                   : null,
             ),
-            _SpeedButton(controller: controller, speeds: _speeds, compact: true),
+            _SpeedButton(
+                controller: controller, speeds: _speeds, compact: true),
             IconButton(
               tooltip: 'Close',
               iconSize: 20,
               padding: EdgeInsets.zero,
-              constraints:
-                  const BoxConstraints(minWidth: 32, minHeight: 32),
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
               icon: const Icon(Icons.close, color: Colors.white54),
               onPressed: controller.close,
             ),
@@ -686,6 +830,41 @@ class _AnimatedBar extends StatelessWidget {
   }
 }
 
+/// Soft shadow gradient at a control bar's edge, fading the video content
+/// into the bar instead of a hard cutoff. [barColor] is the bar's solid
+/// color; the gradient runs from it to transparent away from the bar
+/// ([barAtTop] = the bar sits above this fade). IgnorePointer lets taps fall
+/// through to the video surface below.
+class _EdgeFade extends StatelessWidget {
+  const _EdgeFade({
+    required this.height,
+    required this.barColor,
+    this.barAtTop = true,
+  });
+
+  final double height;
+  final Color barColor;
+  final bool barAtTop;
+
+  @override
+  Widget build(BuildContext context) {
+    return IgnorePointer(
+      child: Container(
+        height: height,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: barAtTop
+                ? [barColor, Colors.transparent]
+                : [Colors.transparent, barColor],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Ultra-thin bottom progress bar for the floating window: a 3px track glued
 /// to the bottom edge, seek by tap or horizontal drag. Replaces the
 /// full-screen Slider (48px minimum height) so the window stays compact.
@@ -702,6 +881,11 @@ class _FloatingProgressState extends State<_FloatingProgress> {
   /// Drag/tap preview value in milliseconds (null = not interacting).
   double? _dragMs;
 
+  /// Last progress target (ms) rendered; null before the first build. Used
+  /// to snap the bar instantly on large jumps (replay / end snap / far seek)
+  /// instead of animating across the track (see _kSnapJumpMs).
+  double? _lastTargetMs;
+
   MediaPlayerController get controller => widget.controller;
 
   @override
@@ -713,6 +897,13 @@ class _FloatingProgressState extends State<_FloatingProgress> {
             controller.phase == MediaPlaybackPhase.paused);
     final valueMs = (_dragMs ?? controller.position.inMilliseconds.toDouble())
         .clamp(0.0, maxMs);
+    // Snap instantly on large jumps (replay / end snap / far seek) instead
+    // of animating the bar across the track; keep the 250ms smoothing for
+    // ordinary poll ticks.
+    final snap = _dragMs != null ||
+        (_lastTargetMs != null &&
+            (valueMs - _lastTargetMs!).abs() > _kSnapJumpMs);
+    _lastTargetMs = valueMs;
     final ratio = maxMs > 0 ? valueMs / maxMs : 0.0;
 
     return LayoutBuilder(
@@ -756,9 +947,8 @@ class _FloatingProgressState extends State<_FloatingProgress> {
             // control strip.
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(end: ratio),
-              duration: _dragMs != null
-                  ? Duration.zero
-                  : const Duration(milliseconds: 250),
+              duration:
+                  snap ? Duration.zero : const Duration(milliseconds: 250),
               builder: (context, animatedRatio, _) => Align(
                 alignment: Alignment.centerLeft,
                 child: Container(
@@ -799,7 +989,8 @@ class _MiniProgress extends StatelessWidget {
   Widget build(BuildContext context) {
     final durationMs = controller.duration.inMilliseconds;
     final maxMs = durationMs > 0 ? durationMs.toDouble() : 1.0;
-    final value = controller.position.inMilliseconds.toDouble().clamp(0.0, maxMs);
+    final value =
+        controller.position.inMilliseconds.toDouble().clamp(0.0, maxMs);
     final enabled = durationMs > 0 &&
         (controller.phase == MediaPlaybackPhase.playing ||
             controller.phase == MediaPlaybackPhase.paused);
@@ -817,7 +1008,8 @@ class _MiniProgress extends StatelessWidget {
 
 /// Playback-speed selector (0.5x / 1.0x / 1.5x / 2.0x).
 class _SpeedButton extends StatelessWidget {
-  const _SpeedButton({required this.controller, required this.speeds, this.compact = false});
+  const _SpeedButton(
+      {required this.controller, required this.speeds, this.compact = false});
 
   final MediaPlayerController controller;
   final List<double> speeds;
@@ -834,8 +1026,8 @@ class _SpeedButton extends StatelessWidget {
           PopupMenuItem(value: speed, child: Text('${speed}x')),
       ],
       child: Container(
-        padding: EdgeInsets.symmetric(
-            horizontal: compact ? 6 : 10, vertical: 4),
+        padding:
+            EdgeInsets.symmetric(horizontal: compact ? 6 : 10, vertical: 4),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.white38),

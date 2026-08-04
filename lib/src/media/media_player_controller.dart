@@ -451,7 +451,18 @@ class MediaPlayerController extends ChangeNotifier {
       return;
     }
     debugPrint('[cef-media-player] replay from start');
-    player.seek(position: 0);
+    // Reset deferred-error / stall / poll tracking: the seek leaves the
+    // position frozen while fvp reloads, and a stale transient error from
+    // the previous run (already dropped once) must not be confirmed as a
+    // failure here.
+    _pendingError = null;
+    _stallTicks = 0;
+    _lastPollMs = 0;
+    _seeking = true;
+    player.seek(position: 0).then((_) {
+      if (_disposed || player != _player) return;
+      _seeking = false;
+    });
     player.state = mdk.PlaybackState.playing;
     _phase = MediaPlaybackPhase.playing;
     _position = Duration.zero;
@@ -525,6 +536,10 @@ class MediaPlayerController extends ChangeNotifier {
   void _onEnded() {
     if (_phase == MediaPlaybackPhase.ended) return;
     _stopPolling();
+    // Drop any deferred transient error / stall count: the next replay
+    // starts from a clean state instead of confirming them after seek.
+    _pendingError = null;
+    _stallTicks = 0;
     _phase = MediaPlaybackPhase.ended;
     // Snap the position to the real duration: the last polled value may be a
     // frame before the end (e.g. a 1.9s clip polled at 1.8s), leaving the
@@ -575,8 +590,11 @@ class MediaPlayerController extends ChangeNotifier {
       final ms = player.position;
       // Deferred error confirmation: the playback is alive while the
       // position moves, so transient mdk errors are dropped; a stall over
-      // several consecutive polls is reported as a real failure.
-      if (_pendingError != null && _phase == MediaPlaybackPhase.playing) {
+      // several consecutive polls is reported as a real failure. A seek /
+      // replay freezes the position on purpose, so it never confirms one.
+      if (_pendingError != null &&
+          _phase == MediaPlaybackPhase.playing &&
+          !_seeking) {
         if (ms != _lastPollMs) {
           _pendingError = null; // still advancing — transient, drop it
         } else if (++_stallTicks >= _kErrorStallTicks) {
