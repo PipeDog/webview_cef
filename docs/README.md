@@ -19,6 +19,7 @@
 | [CEF 详解](chapter/9-CEF%E8%AF%A6%E8%A7%A3.md) | CEF 多进程架构、文件结构、Helper 应用、渲染模式、缓存目录、命令行开关 |
 | [新旧项目差异对比](chapter/10-%E6%96%B0%E6%97%A7%E9%A1%B9%E7%9B%AE%E5%B7%AE%E5%BC%82%E5%AF%B9%E6%AF%94.md) | 旧项目（cef_flutter）与新项目（webview_cef）在 CEF 版本、Helper 构建、代码架构、渲染管线、JSBridge 等多维度的全面对比 |
 | [接入指南](chapter/11-接入指南.md) | 面向插件使用者的入门与集成指南：环境要求、四平台配置、最小示例、常用功能、配置项、FAQ |
+| [媒体播放接管](chapter/12-媒体播放接管.md) | 让 CEF 播放 MP3/MP4 的整体方案：JS 注入劫持媒体元素、fvp 原生播放、状态同步协议、全屏/浮窗/mini bar 三种 UI |
 
 ## 核心文件速查
 
@@ -30,6 +31,9 @@
 | CEF 客户端实现（浏览器生命周期、渲染、输入） | `common/webview_handler.h/cc` |
 | V8 扩展和 JS 桥接 | `common/webview_app.cc` + `common/webview_js_handler.cc` |
 | 最完整的平台适配参考 | `macos/Classes/CefWrapper.mm` |
+| 媒体播放接管的 Dart 控制器与状态机 | `lib/src/media/media_player_controller.dart` |
+| 媒体播放接管的 JS 注入脚本 | `lib/src/media/media_player_js_injection.dart` |
+| 媒体播放接管的 UI（全屏/浮窗/mini bar） | `lib/src/media/media_player_overlay.dart` |
 
 ## 阅读顺序建议
 
@@ -44,3 +48,4 @@
 9. [macOS Universal 构建](chapter/8-macOS%20Universal构建.md) 在需要打双架构 release 包或配置 CI 时查阅
 10. [CEF 详解](chapter/9-CEF详解.md) 在需要了解 CEF 本身的文件、进程、子进程机制时查阅
 11. [新旧项目差异对比](chapter/10-新旧项目差异对比.md) 在对比旧项目实现或验证迁移完整性时查阅
+12. [媒体播放接管](chapter/12-媒体播放接管.md) 在需要了解页面媒体（MP3/MP4）如何被原生接管播放时查阅
