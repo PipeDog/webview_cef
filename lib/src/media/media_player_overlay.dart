@@ -68,7 +68,7 @@ class _DraggableBox extends StatefulWidget {
   final Widget child;
 
   /// Bumped by the owner (e.g. after a floating-window resize) to request a
-  /// re-snap to the right edge on the next layout.
+  /// re-snap to the nearest horizontal edge on the next layout.
   final int snapSignal;
 
   @override
@@ -80,14 +80,25 @@ class _DraggableBoxState extends State<_DraggableBox> {
   /// bottom-right corner of the stage.
   Offset? _pos;
 
+  /// Which horizontal edge the box is currently anchored to. On a parent-
+  /// window resize the box follows this edge — right-anchored tracks the
+  /// right edge, left-anchored stays put. Defaults to right to match the
+  /// bottom-right initial position.
+  bool _snappedToRight = true;
+
   /// Set by didUpdateWidget when the owner bumps [snapSignal] (a resize):
-  /// the next layout re-snaps the box to the horizontal edge it is closer
-  /// to.
+  /// the next layout re-evaluates the anchor and re-snaps the box to the
+  /// horizontal edge it is closer to.
   bool _pendingSnap = false;
 
   /// True while the user is dragging: the box tracks the pointer without
   /// animation, then snaps to the nearest horizontal edge on release.
   bool _dragging = false;
+
+  /// Last layout's stage width; used to detect a parent-window resize this
+  /// frame so the box can follow its anchor edge instantly instead of
+  /// animating (which would lag behind a continuous window drag).
+  double? _lastStageWidth;
 
   @override
   void didUpdateWidget(_DraggableBox oldWidget) {
@@ -113,18 +124,28 @@ class _DraggableBoxState extends State<_DraggableBox> {
         final rightX = maxX < minX ? minX : maxX;
         final bottomY = maxY < minY ? minY : maxY;
         final raw = _pos ?? Offset(rightX, bottomY);
-        // A resize re-snaps the box to the horizontal edge it is currently
-        // closer to; otherwise clamp the drag position to the margins.
-        _pos = _pendingSnap
-            ? Offset(
-                raw.dx - minX <= rightX - raw.dx ? minX : rightX,
-                raw.dy.clamp(minY, bottomY),
-              )
-            : Offset(
-                raw.dx.clamp(minX, rightX),
-                raw.dy.clamp(minY, bottomY),
-              );
+        // A parent-window resize (stage width changed this frame) makes the
+        // box follow its currently-anchored edge instantly — right-anchored
+        // tracks rightX, left-anchored stays at minX. A pending snap (resize
+        // button / title double-tap) re-evaluates the anchor from the
+        // current X and animates to the nearest edge. Otherwise just clamp
+        // the drag position to the margins. Dragging always clamps (never
+        // re-anchors) so the pointer stays in control mid-drag.
+        final parentResizing = _lastStageWidth != null &&
+            constraints.maxWidth != _lastStageWidth;
+        if (_pendingSnap) {
+          _snappedToRight = raw.dx - minX > rightX - raw.dx;
+          _pos = Offset(
+              _snappedToRight ? rightX : minX, raw.dy.clamp(minY, bottomY));
+        } else if (parentResizing && !_dragging) {
+          _pos = Offset(
+              _snappedToRight ? rightX : minX, raw.dy.clamp(minY, bottomY));
+        } else {
+          _pos = Offset(
+              raw.dx.clamp(minX, rightX), raw.dy.clamp(minY, bottomY));
+        }
         _pendingSnap = false;
+        _lastStageWidth = constraints.maxWidth;
         // AnimatedPositioned must be a direct child of a Stack (a
         // LayoutBuilder accepts BoxParentData and would reject it). The
         // Stack spans the full webview area as the stage; the box floats on
@@ -136,9 +157,11 @@ class _DraggableBoxState extends State<_DraggableBox> {
               top: _pos!.dy,
               width: widget.size.width,
               height: widget.size.height,
-              // Track the pointer while dragging; animate the horizontal
-              // snap to the nearest edge on release.
-              duration: _dragging
+              // Animate discrete snaps (drag release / resize button); stay
+              // instant while dragging or while the parent window is being
+              // resized so the box tracks the edge in real time instead of
+              // lagging behind a continuous resize.
+              duration: (_dragging || parentResizing)
                   ? Duration.zero
                   : const Duration(milliseconds: 200),
               curve: Curves.easeOutCubic,
@@ -150,13 +173,16 @@ class _DraggableBoxState extends State<_DraggableBox> {
                   });
                 },
                 onPanEnd: (_) {
-                  // Snap horizontally to the nearest edge on release; the
-                  // vertical position stays where it was dropped.
+                  // Snap horizontally to the nearest edge on release and
+                  // record which edge that is, so a later parent-window
+                  // resize knows which edge to follow. The vertical
+                  // position stays where it was dropped.
                   setState(() {
                     _dragging = false;
                     final pos = _pos!;
+                    _snappedToRight = pos.dx - minX > rightX - pos.dx;
                     _pos = Offset(
-                      pos.dx - minX <= rightX - pos.dx ? minX : rightX,
+                      _snappedToRight ? rightX : minX,
                       pos.dy,
                     );
                   });
