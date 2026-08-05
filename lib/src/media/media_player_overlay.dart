@@ -91,8 +91,9 @@ class _DraggableBoxState extends State<_DraggableBox> {
   /// horizontal edge it is closer to.
   bool _pendingSnap = false;
 
-  /// True while the user is dragging: the box tracks the pointer without
-  /// animation, then snaps to the nearest horizontal edge on release.
+  /// True while the user is dragging: the box tracks the pointer freely
+  /// inside the margins and meets rubber-band resistance past them, then
+  /// snaps to the nearest horizontal edge on release.
   bool _dragging = false;
 
   /// Last layout's stage width; used to detect a parent-window resize this
@@ -100,12 +101,31 @@ class _DraggableBoxState extends State<_DraggableBox> {
   /// animating (which would lag behind a continuous window drag).
   double? _lastStageWidth;
 
+  /// Unconstrained pointer position while dragging — accumulates the raw
+  /// pan deltas without clamping, then maps through [_rubberBand] so the
+  /// displayed [_pos] meets progressive resistance past the margins. Reset
+  /// to null on release.
+  Offset? _virtualPos;
+
   @override
   void didUpdateWidget(_DraggableBox oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (widget.snapSignal != oldWidget.snapSignal) {
       _pendingSnap = true;
     }
+  }
+
+  /// Damps a coordinate that has gone past [min]/[max]: inside the bounds
+  /// the value is returned unchanged; past an edge it follows a rational
+  /// rubber band (stretch = raw / (1 + |raw|/k)) so the further the pointer
+  /// goes past the edge, the slower the displayed position approaches
+  /// edge ± k — iOS-style overscroll resistance without an exp() call.
+  double _rubberBand(double v, double min, double max) {
+    if (v >= min && v <= max) return v;
+    const k = 120.0;
+    final edge = v < min ? min : max;
+    final raw = v - edge;
+    return edge + raw / (1 + raw.abs() / k);
   }
 
   @override
@@ -128,9 +148,9 @@ class _DraggableBoxState extends State<_DraggableBox> {
         // box follow its currently-anchored edge instantly — right-anchored
         // tracks rightX, left-anchored stays at minX. A pending snap (resize
         // button / title double-tap) re-evaluates the anchor from the
-        // current X and animates to the nearest edge. Otherwise just clamp
-        // the drag position to the margins. Dragging always clamps (never
-        // re-anchors) so the pointer stays in control mid-drag.
+        // current X and animates to the nearest edge. While dragging the
+        // box is left unclamped so it can overflow past the margins on all
+        // four sides; otherwise (idle rebuild) clamp to the margins.
         final parentResizing = _lastStageWidth != null &&
             constraints.maxWidth != _lastStageWidth;
         if (_pendingSnap) {
@@ -140,6 +160,10 @@ class _DraggableBoxState extends State<_DraggableBox> {
         } else if (parentResizing && !_dragging) {
           _pos = Offset(
               _snappedToRight ? rightX : minX, raw.dy.clamp(minY, bottomY));
+        } else if (_dragging) {
+          // Dragging: keep the pointer-driven position as-is (may be out
+          // of bounds); it snaps / clamps back on release.
+          _pos = raw;
         } else {
           _pos = Offset(
               raw.dx.clamp(minX, rightX), raw.dy.clamp(minY, bottomY));
@@ -166,24 +190,42 @@ class _DraggableBoxState extends State<_DraggableBox> {
                   : const Duration(milliseconds: 200),
               curve: Curves.easeOutCubic,
               child: GestureDetector(
-                onPanStart: (_) => setState(() => _dragging = true),
+                onPanStart: (_) => setState(() {
+                  _dragging = true;
+                  // Start the unconstrained pointer from the current
+                  // displayed position so the rubber band engages smoothly
+                  // as the box crosses an edge.
+                  _virtualPos = _pos;
+                }),
                 onPanUpdate: (details) {
                   setState(() {
-                    _pos = _pos! + details.delta;
+                    final vp = (_virtualPos ?? _pos!) + details.delta;
+                    _virtualPos = vp;
+                    // Map the unconstrained pointer through a rubber band
+                    // so dragging past the margins meets progressive
+                    // resistance on both axes; inside the margins the box
+                    // still tracks the pointer 1:1.
+                    _pos = Offset(
+                      _rubberBand(vp.dx, minX, rightX),
+                      _rubberBand(vp.dy, minY, bottomY),
+                    );
                   });
                 },
                 onPanEnd: (_) {
                   // Snap horizontally to the nearest edge on release and
                   // record which edge that is, so a later parent-window
-                  // resize knows which edge to follow. The vertical
-                  // position stays where it was dropped.
+                  // resize knows which edge to follow. Vertically, pull
+                  // back into the margins (the box may have been dragged
+                  // past the top/bottom edge) but keep the dropped Y —
+                  // vertical does not snap to an edge.
                   setState(() {
                     _dragging = false;
+                    _virtualPos = null;
                     final pos = _pos!;
                     _snappedToRight = pos.dx - minX > rightX - pos.dx;
                     _pos = Offset(
                       _snappedToRight ? rightX : minX,
-                      pos.dy,
+                      pos.dy.clamp(minY, bottomY),
                     );
                   });
                 },
