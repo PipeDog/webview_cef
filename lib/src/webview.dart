@@ -540,12 +540,17 @@ class WebViewState extends State<WebView>
 
   @override
   void didChangeMetrics() {
-    // Window / screen metrics changed (e.g. resize, DPI change). Report the
-    // new surface size to CEF so the browser view rect stays in sync with the
-    // Flutter widget. This is a more reliable signal than
-    // SizeChangedLayoutNotifier during macOS live resize, where Flutter's
-    // layout pipeline may be throttled.
-    _reportSurfaceSize(context);
+    // Window / screen metrics changed (e.g. resize, DPI change). This
+    // callback fires before layout, so reading the box size here returns the
+    // pre-resize value — reporting that to CEF leaves the texture at the
+    // old size while the widget fills the new one (stretched content,
+    // misaligned input) until the next layout catches up. Defer to the next
+    // frame so the RenderBox has been laid out at the new size before we
+    // report it. SizeChangedLayoutNotifier (in _buildInner) is a
+    // belt-and-suspenders fallback, but on macOS live resize the layout
+    // pipeline may be throttled, so this metrics-driven report stays primary.
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _reportSurfaceSize(context));
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
